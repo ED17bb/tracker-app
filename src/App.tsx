@@ -36,13 +36,14 @@ import {
 // --- CONFIGURACIÓN DE TU FIREBASE ---
 // ERNESTO: Pega aquí los datos que copiaste de la consola de Firebase
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
+  authDomain: "physical-tracker-100.firebaseapp.com",
+  projectId: "physical-tracker-100",
+  storageBucket: "physical-tracker-100.firebasestorage.app",
+  messagingSenderId: "139291216970",
+  appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
 };
+
 
 // Validación de seguridad para el desarrollador
 const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
