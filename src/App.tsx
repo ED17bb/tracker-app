@@ -1,24 +1,20 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Plus, 
   Trash2, 
   Dumbbell, 
   Calendar as CalendarIcon, 
   X,
   TrendingUp,
   User,
-  CheckCircle2,
   Activity,
-  BarChart2,
   Skull, 
-  Ruler,
   ArrowLeft,
   History,
   Camera,
-  Maximize2,
-  AlertTriangle
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 
 // Importaciones de Firebase
@@ -34,7 +30,6 @@ import {
   doc, 
   setDoc, 
   getDoc,
-  deleteDoc, 
   onSnapshot 
 } from "firebase/firestore";
 
@@ -50,7 +45,7 @@ const firebaseConfig = {
 };
 
 
-// Validación de seguridad
+// Validación de seguridad para el desarrollador
 const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
 
 // Inicialización de servicios
@@ -110,7 +105,7 @@ const Header = ({ title, subtitle, onBack }: any) => (
   <header className="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-20 w-full">
     <div className="max-w-md mx-auto flex items-center gap-4">
       {onBack && (
-        <button onClick={onBack} className="bg-slate-700 p-2 rounded-full text-white active:bg-slate-600">
+        <button onClick={onBack} className="bg-slate-700 p-2 rounded-full text-white active:bg-slate-600 transition-colors">
           <ArrowLeft size={18} />
         </button>
       )}
@@ -130,7 +125,7 @@ const HomeView = ({ onNavigate }: any) => (
       <Dumbbell size={40} className="text-white" />
     </div>
     <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">GYM PRO</h1>
-    <p className="text-slate-500 text-xs uppercase tracking-widest mb-8 font-bold">Registro de Fuerza Progresiva</p>
+    <p className="text-slate-500 text-xs uppercase tracking-widest mb-8 font-bold text-center w-full">Registro de Fuerza</p>
     
     <div className="grid grid-cols-1 w-full max-w-sm gap-4">
       {[
@@ -193,7 +188,7 @@ const ProfileView = ({ user, onBack }: any) => {
 
   return (
     <div className="min-h-screen bg-slate-900 pb-10">
-      <Header title="Perfil" subtitle="Antropometría" onBack={onBack} />
+      <Header title="Perfil" subtitle="Datos Biométricos" onBack={onBack} />
       <main className="max-w-md mx-auto p-4 space-y-4">
         <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 shadow-inner">
           {['male', 'female'].map(g => (
@@ -209,7 +204,6 @@ const ProfileView = ({ user, onBack }: any) => {
         </div>
         <div className="grid grid-cols-2 gap-3"><Field label="Altura" field="height" unit="cm" /><Field label="Peso" field="weight" unit="kg" /></div>
         <div className="grid grid-cols-3 gap-3"><Field label="Cuello" field="neck" unit="cm" /><Field label="Abdomen" field="waist" unit="cm" />{p.gender === 'female' && <Field label="Cadera" field="hip" unit="cm" />}</div>
-        <div className="grid grid-cols-2 gap-3"><Field label="Pecho" field="chest" unit="cm" /><Field label="Brazos" field="arms" unit="cm" /><Field label="Muslo" field="thigh" unit="cm" />{p.gender === 'male' && <Field label="Cadera" field="hip" unit="cm" />}</div>
         <button onClick={save} disabled={saving} className="w-full bg-indigo-600 py-4 rounded-2xl font-black text-white mt-4 shadow-lg active:scale-95 transition-all">{saving ? 'GUARDANDO...' : 'GUARDAR DATOS'}</button>
       </main>
     </div>
@@ -228,6 +222,16 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
     return ky === y && km === m + 1 && workouts[k]?.length > 0;
   }).length, [workouts, y, m]);
 
+  const lastWeight = useMemo(() => {
+    if (!form.name) return null;
+    const entries = Object.entries(workouts).filter(([dk, d]: any) => dk !== sel && d.some((ex: any) => ex.name === form.name)).sort((a,b) => b[0].localeCompare(a[0]));
+    if (entries.length > 0) {
+      const lastEx = (entries[0][1] as any[]).find(ex => ex.name === form.name);
+      return { weight: lastEx.weight, date: entries[0][0] };
+    }
+    return null;
+  }, [form.name, workouts, sel]);
+
   const add = async () => {
     if (!form.name || !form.weight || !sel || !db) return;
     const item = { id: Date.now(), ...form, weight: parseFloat(form.weight) };
@@ -239,9 +243,9 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
     <div className="min-h-screen bg-slate-900 pb-20">
       <Header title="Entrenamiento" onBack={onBack} />
       <main className="max-w-md mx-auto p-4">
-        <div className="flex justify-between items-center mb-6 bg-slate-800 p-2 rounded-2xl border border-slate-700">
+        <div className="flex justify-between items-center mb-6 bg-slate-800 p-2 rounded-2xl border border-slate-700 shadow-md">
           <button className="p-2 hover:bg-slate-700 rounded-lg text-white" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={24}/></button>
-          <span className="font-black capitalize text-white">{months[m]} {y}</span>
+          <span className="font-black text-white">{months[m]} {y}</span>
           <button className="p-2 hover:bg-slate-700 rounded-lg text-white" onClick={() => setDate(new Date(y, m + 1, 1))}><ChevronRight size={24}/></button>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center mb-6">
@@ -250,19 +254,20 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
           {Array.from({ length: getDaysInMonth(y, m) }).map((_, i) => {
             const day = i + 1, key = formatDateKey(y, m, day);
             const hasData = workouts[key]?.length > 0;
+            const isToday = new Date().toDateString() === new Date(y, m, day).toDateString();
             return (
-              <button key={day} onClick={() => { setSel(key); setOpen(true); }} className={`aspect-square rounded-xl text-sm font-black border transition-all flex items-center justify-center ${hasData ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg' : 'bg-slate-800/50 border-transparent text-slate-600 hover:bg-slate-800'}`}>{day}</button>
+              <button key={day} onClick={() => { setSel(key); setOpen(true); }} className={`aspect-square rounded-xl text-sm font-black border transition-all flex items-center justify-center ${hasData ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg' : isToday ? 'border-blue-500 text-blue-400 bg-slate-800' : 'bg-slate-800/50 border-transparent text-slate-600 hover:bg-slate-800'}`}>{day}</button>
             );
           })}
         </div>
         <div className="bg-slate-800 rounded-[2rem] p-6 text-center border border-slate-700 shadow-2xl">
           <div className="text-5xl font-black text-emerald-400">{trained}</div>
-          <p className="text-[10px] text-slate-500 uppercase font-black tracking-[0.2em] mt-2">Días entrenados este mes</p>
+          <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días entrenados este mes</p>
         </div>
 
         {open && sel && (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-end animate-in fade-in">
-            <div className="bg-slate-900 w-full rounded-t-[2.5rem] p-6 max-h-[90vh] flex flex-col border-t border-slate-700 shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-end">
+            <div className="bg-slate-900 w-full rounded-t-[2.5rem] p-6 max-h-[95vh] flex flex-col border-t border-slate-700 shadow-2xl">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="font-black text-xl text-blue-400 flex items-center gap-2"><CalendarIcon size={20}/> {sel}</h2>
                 <button onClick={() => setOpen(false)} className="p-2 bg-slate-800 rounded-full text-white"><X/></button>
@@ -272,7 +277,7 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
                   <div key={ex.id} className="bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-700 shadow-sm">
                     <div>
                       <p className="font-black text-slate-100 uppercase text-xs tracking-tight">{ex.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-bold">{ex.sets} series x {ex.reps} reps — <span className="text-orange-400">{ex.weight}kg</span></p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-bold">{ex.sets} series x {ex.reps} reps — <span className="text-orange-400 font-black">{ex.weight}kg</span></p>
                     </div>
                     <button onClick={async () => {
                       const upd = workouts[sel].filter((e: any) => e.id !== ex.id);
@@ -286,12 +291,20 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
                   </div>
                 )}
               </div>
-              <div className="space-y-4 bg-slate-800 p-6 rounded-[2rem] border border-slate-700 shadow-inner">
+
+              <div className="space-y-4 bg-slate-800 p-6 rounded-[2.5rem] border border-slate-700 shadow-inner">
+                {lastWeight && (
+                  <div className="flex items-center gap-2 bg-blue-900/30 p-2 rounded-xl text-[10px] text-blue-300 font-bold uppercase tracking-wider mb-2">
+                    <Info size={14} />
+                    <span>Último: {lastWeight.weight}kg</span>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="w-full bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none">
+                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none shadow-md">
                     <option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}
                   </select>
-                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none">
+                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none shadow-md">
                     <option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
@@ -305,6 +318,40 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
             </div>
           </div>
         )}
+      </main>
+    </div>
+  );
+};
+
+const ChartsView = ({ workouts, onBack }: any) => {
+  const [sel, setSel] = useState('');
+  const list = useMemo(() => {
+    const n = new Set<string>();
+    Object.values(workouts).forEach((dl: any) => dl.forEach((ex: any) => n.add(ex.name)));
+    return Array.from(n).sort();
+  }, [workouts]);
+
+  const chartData = useMemo(() => {
+    if (!sel) return [];
+    return Object.entries(workouts).filter(([dk, d]: any) => d.some((ex: any) => ex.name === sel)).map(([date, l]: any) => ({ date, weight: Math.max(...l.filter((ex: any) => ex.name === sel).map((ex: any) => ex.weight)) })).sort((a,b) => a.date.localeCompare(b.date));
+  }, [workouts, sel]);
+
+  return (
+    <div className="min-h-screen bg-slate-900 pb-20 text-white">
+      <Header title="Progreso" subtitle="Carga Progresiva" onBack={onBack} />
+      <main className="max-w-md mx-auto p-4">
+        <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-800 p-5 rounded-2xl mb-6 border border-slate-700 outline-none font-black text-white shadow-xl appearance-none">
+          <option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+        </select>
+        {chartData.length > 1 ? (
+          <div className="bg-slate-800 p-8 rounded-[2.5rem] h-72 flex items-end justify-between gap-2 border border-slate-700 shadow-inner overflow-x-auto">
+            {chartData.map((val: any, i) => (
+              <div key={i} className="bg-emerald-500 w-full min-w-[15px] rounded-t-lg relative group shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-400" style={{ height: `${(val.weight / Math.max(...chartData.map((x: any)=>x.weight))) * 100}%` }}>
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-[10px] bg-slate-900 p-1.5 rounded font-black opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-slate-700 z-10 shadow-xl">{val.weight}kg</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="text-center py-20 opacity-20 italic font-black uppercase tracking-widest text-white"><Activity size={64} className="mx-auto mb-4"/><p>Datos insuficientes</p></div>}
       </main>
     </div>
   );
@@ -328,7 +375,7 @@ const FailureView = ({ user, workouts, onBack }: any) => {
       <Header title="Modo Fallo" subtitle="Personal Records" onBack={onBack} />
       <main className="max-w-md mx-auto p-4 space-y-6">
         <div className="bg-rose-900/10 p-6 rounded-[2.5rem] border border-rose-500/20 shadow-xl">
-          <h3 className="font-black text-rose-400 mb-4 flex items-center gap-2 italic uppercase tracking-tighter"><Skull size={24}/> Nuevo Récord</h3>
+          <h3 className="font-black text-rose-400 mb-4 flex items-center gap-2 italic uppercase tracking-tighter text-sm"><Skull size={24}/> Nuevo Récord</h3>
           <div className="space-y-4">
             <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-4 rounded-xl text-white outline-none font-black text-xs border border-slate-700">
               <option value="">SELECCIONA EJERCICIO...</option>
@@ -347,7 +394,7 @@ const FailureView = ({ user, workouts, onBack }: any) => {
           </div>
         </div>
         {Object.entries(list).map(([name, d]: any) => (
-          <div key={name} className="bg-slate-800 p-5 rounded-2xl flex justify-between border border-slate-700 shadow-lg">
+          <div key={name} className="bg-slate-800 p-5 rounded-2xl flex justify-between border border-slate-700 shadow-lg items-center">
             <div>
               <p className="font-black text-slate-100 uppercase text-sm tracking-tight">{name}</p>
               <p className="text-[10px] text-slate-500 font-bold uppercase">{d.date}</p>
@@ -379,7 +426,7 @@ const HistoryView = ({ user, workouts, onBack }: any) => {
     return () => unsub();
   }, [user]);
 
-  const history = useMemo(() => {
+  const historyData = useMemo(() => {
     const res = []; const now = new Date();
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -405,61 +452,36 @@ const HistoryView = ({ user, workouts, onBack }: any) => {
           await setDoc(doc(db, 'photos', user.uid, 'monthly', selRef.current), { image: b64, date: new Date().toLocaleDateString() });
           setUp(null);
         }} />
-        {history.map(item => (
+        {historyData.map(item => (
           <div key={item.key} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center shadow-lg">
-            <div><h3 className="font-bold capitalize text-lg">{item.month} {item.year}</h3><div className="text-amber-500 font-black text-xl">{item.pct}% <span className="text-[10px] text-slate-500 font-normal">DIAS ENTRENADOS</span></div></div>
-            {photos[item.key] ? (
-              <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-16 h-16 object-cover rounded-xl border-2 border-slate-600" />
-            ) : (
-              <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-16 h-16 bg-slate-700/50 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-500">
-                {up === item.key ? <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent animate-spin rounded-full"/> : <Camera size={24}/>}
-              </button>
-            )}
+            <div>
+              <h3 className="font-black capitalize text-white text-lg tracking-tighter">{item.month} {item.year}</h3>
+              <div className="flex items-baseline gap-2">
+                <span className="text-amber-500 font-black text-2xl">{item.pct}%</span>
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Cumplido</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              {photos[item.key] ? (
+                <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-16 h-16 object-cover rounded-2xl border-2 border-slate-600 shadow-md active:scale-90 transition-all cursor-pointer" alt="Progreso" />
+              ) : (
+                <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-16 h-16 bg-slate-700/50 rounded-2xl border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-500 hover:text-amber-500 transition-all active:scale-95">
+                  {up === item.key ? <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent animate-spin rounded-full"/> : <Camera size={24}/>}
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </main>
-      {zoom && <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={() => setZoom(null)}><img src={zoom} className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl" /></div>}
+      {zoom && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setZoom(null)}>
+          <button className="absolute top-6 right-6 text-white bg-slate-800 p-2 rounded-full shadow-lg"><X/></button>
+          <img src={zoom} className="max-w-full max-h-[85vh] rounded-3xl shadow-2xl border border-slate-700" alt="Zoom" />
+        </div>
+      )}
     </div>
   );
 };
-
-const ChartsView = ({ workouts, onBack }: any) => {
-  const [sel, setSel] = useState('');
-  const list = useMemo(() => {
-    const n = new Set<string>();
-    Object.values(workouts).forEach((dl: any) => dl.forEach((ex: any) => n.add(ex.name)));
-    return Array.from(n).sort();
-  }, [workouts]);
-
-  const data = useMemo(() => {
-    if (!sel) return [];
-    return Object.entries(workouts).filter(([d, l]: any) => l.some((ex: any) => ex.name === sel))
-      .map(([date, l]: any) => ({ date, weight: Math.max(...l.filter((ex: any) => ex.name === sel).map((ex: any) => ex.weight)) }))
-      .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [workouts, sel]);
-
-  return (
-    <div className="min-h-screen bg-slate-900 pb-20 text-white">
-      <Header title="Progreso" subtitle="Carga Progresiva" onBack={onBack} />
-      <main className="max-w-md mx-auto p-4">
-        <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-800 p-4 rounded-xl mb-6 border border-slate-700 outline-none">
-          <option value="">Seleccionar ejercicio...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}
-        </select>
-        {data.length > 1 ? (
-          <div className="bg-slate-800 p-6 rounded-[2rem] h-64 flex items-end justify-between gap-1 border border-slate-700 shadow-inner">
-            {data.map((d: any, i) => (
-              <div key={i} className="bg-emerald-500 w-full rounded-t-lg relative group" style={{ height: `${(d.weight / Math.max(...data.map((x: any)=>x.weight))) * 100}%` }}>
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[8px] bg-slate-900 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{d.weight}kg</div>
-              </div>
-            ))}
-          </div>
-        ) : <div className="text-center py-20 opacity-30 italic"><Activity size={48} className="mx-auto mb-4"/><p>Necesitas al menos dos días de datos para graficar.</p></div>}
-      </main>
-    </div>
-  );
-};
-
-// --- App Principal ---
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -467,7 +489,7 @@ export default function App() {
   const [workouts, setWorkouts] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
-  // EFECTO DE SENIOR DEV: Inyectar Tailwind CSS si no está presente en el servidor de StackBlitz
+  // Inyectar Tailwind CSS si no está presente
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
       const script = document.createElement('script');
@@ -484,16 +506,9 @@ export default function App() {
     }
     const unsub = onAuthStateChanged(auth, async u => {
       if (!u) { 
-        try { 
-          await signInAnonymously(auth); 
-        } catch(e) {
-          console.error("Error Auth:", e);
-          setLoading(false);
-        } 
+        try { await signInAnonymously(auth); } catch(e) { setLoading(false); } 
       }
-      else { 
-        setUser(u); 
-      }
+      else { setUser(u); }
     });
     return () => unsub();
   }, []);
@@ -501,10 +516,8 @@ export default function App() {
   useEffect(() => {
     if (!user || !isConfigValid || !db) return;
     const unsub = onSnapshot(collection(db, 'workouts', user.uid, 'days'), s => {
-      const d: any = {}; 
-      s.forEach(doc => d[doc.id] = doc.data().exercises || []);
-      setWorkouts(d); 
-      setLoading(false);
+      const d: any = {}; s.forEach(doc => d[doc.id] = doc.data().exercises || []);
+      setWorkouts(d); setLoading(false);
     }, (err) => {
       console.error("Error Firestore:", err);
       setLoading(false);
@@ -513,17 +526,15 @@ export default function App() {
   }, [user]);
 
   if (!isConfigValid) return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white font-sans">
       <AlertTriangle size={64} className="text-amber-500 mb-8 animate-bounce" />
       <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Configuración Pendiente</h1>
-      <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">
-        Ernesto, para que la app "cobre vida" en tu celular, debes copiar tus llaves de Firebase en la línea 40 del archivo <code className="text-blue-400 bg-slate-900 px-1 rounded font-mono">App.tsx</code>.
-      </p>
+      <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Ernesto, copia tus llaves de Firebase en la línea 40 del archivo <code className="text-blue-400 bg-slate-900 px-1 rounded font-mono">App.tsx</code>.</p>
     </div>
   );
 
   if (loading && !user) return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-4">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-4 font-sans">
       <Dumbbell size={48} className="text-blue-500 animate-spin" />
       <span className="tracking-[0.3em] uppercase text-[10px]">Iniciando Motor GymPro...</span>
     </div>
@@ -540,7 +551,7 @@ export default function App() {
 
   return (
     <div className="font-sans text-slate-100 min-h-screen bg-slate-900 antialiased selection:bg-blue-600/30">
-      <div className="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl">
+      <div className="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl border-x border-slate-800/50">
         {views[view] || views.home}
       </div>
     </div>
