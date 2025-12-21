@@ -36,14 +36,13 @@ import {
 // --- CONFIGURACIÓN DE TU FIREBASE ---
 // ERNESTO: Pega aquí los datos que copiaste de la consola de Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
-  authDomain: "physical-tracker-100.firebaseapp.com",
-  projectId: "physical-tracker-100",
-  storageBucket: "physical-tracker-100.firebasestorage.app",
-  messagingSenderId: "139291216970",
-  appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
 };
-
 
 // Validación de seguridad para el desarrollador
 const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
@@ -124,7 +123,7 @@ const HomeView = ({ onNavigate }: any) => (
     <div className="bg-blue-600 p-4 rounded-3xl mb-4 shadow-xl shadow-blue-500/20">
       <Dumbbell size={40} className="text-white" />
     </div>
-    <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2">GYM PRO</h1>
+    <h1 className="text-4xl font-black text-white italic tracking-tighter mb-2 text-center">GYM PRO</h1>
     <p className="text-slate-500 text-xs uppercase tracking-widest mb-8 font-bold text-center w-full">Registro de Fuerza</p>
     
     <div className="grid grid-cols-1 w-full max-w-sm gap-4">
@@ -224,7 +223,9 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
 
   const lastWeight = useMemo(() => {
     if (!form.name) return null;
-    const entries = Object.entries(workouts).filter(([dk, d]: any) => dk !== sel && d.some((ex: any) => ex.name === form.name)).sort((a,b) => b[0].localeCompare(a[0]));
+    const entries = Object.entries(workouts)
+      .filter(([dateKey, d]: any) => dateKey !== sel && d.some((ex: any) => ex.name === form.name))
+      .sort((a,b) => b[0].localeCompare(a[0]));
     if (entries.length > 0) {
       const lastEx = (entries[0][1] as any[]).find(ex => ex.name === form.name);
       return { weight: lastEx.weight, date: entries[0][0] };
@@ -244,13 +245,13 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
       <Header title="Entrenamiento" onBack={onBack} />
       <main className="max-w-md mx-auto p-4">
         <div className="flex justify-between items-center mb-6 bg-slate-800 p-2 rounded-2xl border border-slate-700 shadow-md">
-          <button className="p-2 hover:bg-slate-700 rounded-lg text-white" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={24}/></button>
+          <button onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={24}/></button>
           <span className="font-black text-white">{months[m]} {y}</span>
-          <button className="p-2 hover:bg-slate-700 rounded-lg text-white" onClick={() => setDate(new Date(y, m + 1, 1))}><ChevronRight size={24}/></button>
+          <button onClick={() => setDate(new Date(y, m + 1, 1))}><ChevronRight size={24}/></button>
         </div>
         <div className="grid grid-cols-7 gap-1 text-center mb-6">
           {['D','L','M','X','J','V','S'].map(d => <div key={d} className="text-[10px] text-slate-500 py-2 font-black">{d}</div>)}
-          {Array.from({ length: getFirstDayOfMonth(y, m) }).map((_, i) => <div key={`empty-${i}`} />)}
+          {Array.from({ length: getFirstDayOfMonth(y, m) }).map((_, i) => <div key={i} />)}
           {Array.from({ length: getDaysInMonth(y, m) }).map((_, i) => {
             const day = i + 1, key = formatDateKey(y, m, day);
             const hasData = workouts[key]?.length > 0;
@@ -267,7 +268,7 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
 
         {open && sel && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-end">
-            <div className="bg-slate-900 w-full rounded-t-[2.5rem] p-6 max-h-[95vh] flex flex-col border-t border-slate-700 shadow-2xl">
+            <div className="bg-slate-900 w-full rounded-t-[2.5rem] p-6 max-h-[95vh] flex flex-col border-t border-slate-700 animate-in slide-in-from-bottom duration-300">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="font-black text-xl text-blue-400 flex items-center gap-2"><CalendarIcon size={20}/> {sel}</h2>
                 <button onClick={() => setOpen(false)} className="p-2 bg-slate-800 rounded-full text-white"><X/></button>
@@ -301,17 +302,17 @@ const WorkoutView = ({ user, workouts, onBack }: any) => {
                 )}
                 
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none shadow-md">
+                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-3 rounded-xl text-xs text-white font-black">
                     <option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}
                   </select>
-                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-xs border-none outline-none text-white font-black appearance-none shadow-md">
+                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-xs text-white font-black">
                     <option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="relative"><span className="absolute -top-2 left-2 text-[8px] bg-slate-800 px-1 text-slate-500 font-black uppercase">Sets</span><input type="number" placeholder="0" value={form.sets} onChange={e=>setForm({...form, sets: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center w-full font-black text-white border border-slate-700"/></div>
-                  <div className="relative"><span className="absolute -top-2 left-2 text-[8px] bg-slate-800 px-1 text-slate-500 font-black uppercase">Reps</span><input type="number" placeholder="0" value={form.reps} onChange={e=>setForm({...form, reps: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center w-full font-black text-white border border-slate-700"/></div>
-                  <div className="relative"><span className="absolute -top-2 left-2 text-[8px] bg-slate-800 px-1 text-slate-500 font-black uppercase">Kg</span><input type="number" placeholder="0" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center w-full font-black text-white border border-slate-700"/></div>
+                  <input type="number" placeholder="S" value={form.sets} onChange={e=>setForm({...form, sets: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center font-black text-white"/>
+                  <input type="number" placeholder="R" value={form.reps} onChange={e=>setForm({...form, reps: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center font-black text-white"/>
+                  <input type="number" placeholder="Kg" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="bg-slate-900 p-3 rounded-xl text-center font-black text-white"/>
                 </div>
                 <button onClick={add} className="w-full bg-blue-600 hover:bg-blue-500 p-4 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all">AÑADIR SERIE</button>
               </div>
@@ -333,7 +334,13 @@ const ChartsView = ({ workouts, onBack }: any) => {
 
   const chartData = useMemo(() => {
     if (!sel) return [];
-    return Object.entries(workouts).filter(([dk, d]: any) => d.some((ex: any) => ex.name === sel)).map(([date, l]: any) => ({ date, weight: Math.max(...l.filter((ex: any) => ex.name === sel).map((ex: any) => ex.weight)) })).sort((a,b) => a.date.localeCompare(b.date));
+    return Object.entries(workouts)
+      .filter(([, d]: any) => d.some((ex: any) => ex.name === sel))
+      .map(([date, l]: any) => ({ 
+        date, 
+        weight: Math.max(...l.filter((ex: any) => ex.name === sel).map((ex: any) => ex.weight)) 
+      }))
+      .sort((a,b) => a.date.localeCompare(b.date));
   }, [workouts, sel]);
 
   return (
