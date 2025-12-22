@@ -37,14 +37,13 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- DECLARACIONES GLOBALES (Vercel/StackBlitz) ---
+// --- DECLARACIONES GLOBALES (Para evitar errores de build) ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
-// --- CONFIGURACIÓN E INICIALIZACIÓN ---
-// Ernesto: Puedes pegar tus llaves aquí si prefieres manual, 
-// pero el sistema intentará detectar las del entorno automáticamente.
+// --- CONFIGURACIÓN DE FIREBASE ---
+// Ernesto: Pega tus llaves aquí.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -55,6 +54,7 @@ const firebaseConfig = {
 };
 
 
+// Lógica de configuración unificada
 const finalConfig = (manualFirebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
   ? JSON.parse(__firebase_config)
   : manualFirebaseConfig;
@@ -63,7 +63,7 @@ const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// REGLA 1: Sanitizar appId para evitar errores de segmentos en Firestore
+// Sanitizar appId para rutas seguras
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -206,7 +206,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
         </div>
-        <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-center text-white">
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-center text-white">
           Physical Tracker 100
         </h1>
       </div>
@@ -345,12 +345,9 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     };
 
     try {
-      // Regla de Oro: Actualizamos el documento directamente con el ID del día (sel)
       const currentDayExs = workouts[sel] || [];
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
-      
-      // Limpiamos los campos numéricos pero mantenemos zona y nombre para permitir registrar la siguiente serie rápido
       setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', minutes: '0', customName: '' }));
     } catch (e) {
       console.error("Error al guardar serie:", e);
@@ -395,7 +392,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
             const active = (workouts[k] as Exercise[])?.length > 0;
             const isToday = new Date().toDateString() === new Date(y, m, dayNum).toDateString();
             return (
-              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
+              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:border-slate-500'}`}>{dayNum}</button>
             );
           })}
         </div>
@@ -608,7 +605,6 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    // REGLA 1: Usamos la ruta estricta para escuchar los cambios de entrenamiento
     const qColl = collection(db, 'artifacts', appId, 'users', user.uid, 'days');
     const unsub = onSnapshot(qColl, s => {
       const d: Record<string, Exercise[]> = {};
