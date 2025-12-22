@@ -12,7 +12,6 @@ import {
   History,
   Camera,
   ChevronRight as ChevronRightIcon,
-  Timer,
   Plus,
   Minus,
   Info,
@@ -38,13 +37,13 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- DECLARACIONES GLOBALES PARA EVITAR ERRORES DE BUILD ---
+// --- DECLARACIONES GLOBALES PARA TYPESCRIPT ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: AQUÍ pegas tus llaves. Mantén este nombre 'firebaseConfig'.
+// Ernesto: Pega tus llaves AQUÍ. 
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -53,7 +52,6 @@ const firebaseConfig = {
   messagingSenderId: "139291216970",
   appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
 };
-
 
 
 // Lógica de configuración unificada
@@ -69,18 +67,17 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // REGLA CRÍTICA: Sanitizar el appId para evitar errores de segmentos en Firestore
-const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
-const appId = rawAppId.replace(/[^a-zA-Z0-9_-]/g, '_'); // Solo permite caracteres seguros
+const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'gymtracker-ernesto-fix';
+const appId = rawAppId.replace(/[^a-zA-Z0-9_-]/g, '_'); 
 
 // --- INTERFACES ---
 interface Exercise {
   id: number;
   zone: string;
   name: string;
-  sets?: string;
-  reps?: string;
-  weight?: number;
-  minutes?: string;
+  sets: string;
+  reps: string;
+  weight: number;
 }
 
 interface ProfileData {
@@ -102,6 +99,7 @@ const months = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+// LISTA DE ZONAS (Cardio ha sido eliminado por completo)
 const BODY_ZONES: Record<string, string[]> = {
   "Pecho": ["Press Banca", "Press Inclinado", "Aperturas", "Flexiones", "Cruce de Poleas"],
   "Espalda": ["Dominadas", "Remo con Barra", "Jalón al Pecho", "Remo Gironda", "Peso Muerto"],
@@ -109,8 +107,7 @@ const BODY_ZONES: Record<string, string[]> = {
   "Brazos": ["Curl con Barra", "Curl Martillo", "Extensiones de Tríceps", "Press Francés"],
   "Antebrazos": ["Curl de Muñeca", "Curl Inverso", "Paseo del Granjero"],
   "Abdomen": ["Crunch", "Plancha", "Elevación de Piernas", "Rueda Abdominal"],
-  "Full Body": ["Burpees", "Thrusters", "Clean & Press", "Zancadas", "Salto al Cajón"],
-  "Cardio": ["Cinta de Correr", "Bicicleta", "Elíptica", "Remo", "Cuerda", "Natación"]
+  "Full Body": ["Burpees", "Thrusters", "Clean & Press", "Zancadas", "Salto al Cajón"]
 };
 
 const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
@@ -220,8 +217,8 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
       
       <div className="grid grid-cols-1 w-full gap-5">
         {[
-          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Composición Corporal' },
-          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesión' },
+          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Perfil Corporal' },
+          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesiones' },
           { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'from-slate-700 to-slate-900', desc: 'Personal Records' },
           { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'from-orange-400 to-orange-600', desc: 'Carga Progresiva' },
           { id: 'history', label: 'Historial', icon: History, color: 'from-slate-800 to-black', desc: 'Galería Mensual' },
@@ -234,7 +231,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
             <div className={`bg-gradient-to-br ${item.color} p-4 rounded-3xl text-white shadow-md group-hover:scale-110 transition-transform`}><item.icon size={30}/></div>
             <div className="flex-1">
               <span className="block font-black text-white text-2xl tracking-tight uppercase italic text-white leading-none">{item.label}</span>
-              <span className="text-[11px] text-slate-500 uppercase font-black tracking-widest mt-2 opacity-80">{item.desc}</span>
+              <span className="text-[11px] text-slate-500 uppercase font-black tracking-widest mt-1 opacity-80">{item.desc}</span>
             </div>
             <ChevronRightIcon className="text-slate-700 group-hover:text-orange-500 transition-colors" size={24} />
           </button>
@@ -311,12 +308,13 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
 const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exercise[]>; onBack: () => void }> = ({ user, workouts, onBack }) => {
   const [date, setDate] = useState(new Date());
   const [sel, setSel] = useState<string | null>(null);
-  const [form, setForm] = useState({ zone: '', name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' });
+  const [form, setForm] = useState({ zone: '', name: '', customName: '', sets: '0', reps: '0', weight: '0' });
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [validationMsg, setValidationMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   const y = date.getFullYear(), m = date.getMonth();
+  const daysInMonth = getDaysInMonth(y, m);
   const trainedDaysCount = useMemo(() => Object.keys(workouts).filter(k => {
     const [ky, km] = k.split('-').map(Number);
     return ky === y && km === m + 1 && (workouts[k] as Exercise[])?.length > 0;
@@ -336,38 +334,38 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const add = async () => {
     const finalName = form.name === 'Otro' ? form.customName : form.name;
     
-    // VALIDACIÓN CRUCIAL PARA ERNESTO:
-    if (!form.zone) { setValidationMsg("¡Elige una Zona!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
-    if (!finalName) { setValidationMsg("¡Elige un Ejercicio!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
-    if (!sel || !user) { setValidationMsg("Error de sesión"); return; }
+    // VALIDACIÓN:
+    if (!form.zone) { setMsg("¡Elige Zona!"); setTimeout(()=>setMsg(null), 1500); return; }
+    if (!finalName) { setMsg("¡Elige Ejercicio!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
+    if (!sel || !user) return;
     
     setIsSaving(true);
-    const isCardio = form.zone === 'Cardio';
 
+    // OBJETO LIMPIO: Solo enviamos lo que Firebase acepta (Sin undefined)
     const item: Exercise = { 
       id: Date.now(), 
       zone: form.zone, 
       name: finalName, 
-      sets: isCardio ? undefined : form.sets, 
-      reps: isCardio ? undefined : form.reps, 
-      weight: isCardio ? undefined : (parseFloat(form.weight) || 0), 
-      minutes: isCardio ? form.minutes : undefined 
+      sets: form.sets || "0", 
+      reps: form.reps || "0", 
+      weight: parseFloat(form.weight) || 0
     };
 
     try {
-      // Regla de Oro: Accedemos directamente a la colección de días del usuario
       const currentDayExs = workouts[sel] || [];
+      // Ruta de guardado reforzada
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
       
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
       
-      // Limpiamos los valores numéricos pero mantenemos la zona para carga rápida
-      setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', minutes: '0', customName: '' }));
-      setValidationMsg("¡AGREGADO!");
-      setTimeout(() => setValidationMsg(null), 1000);
+      // Limpiamos campos para la siguiente entrada
+      setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', customName: '' }));
+      setMsg("¡AGREGADO!");
+      setTimeout(() => setMsg(null), 1000);
     } catch (e) {
       console.error("Error al guardar:", e);
-      setValidationMsg("Error Firebase");
+      setMsg("Error Firebase");
+      setTimeout(() => setMsg(null), 2000);
     } finally {
       setIsSaving(false);
     }
@@ -383,7 +381,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   return (
     <ViewContainer>
-      <Header title="Entrenamiento" subtitle="Registro de Progreso" onBack={onBack} />
+      <Header title="Entrenamiento" subtitle="Sesión Actual" onBack={onBack} />
       <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
           <button className="p-5 bg-slate-800 rounded-2xl text-orange-500 active:scale-90" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={28}/></button>
@@ -396,7 +394,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días</p>
            </div>
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic">{String(Math.round((trainedDaysCount / getDaysInMonth(y, m)) * 100))}%</div>
+              <div className="text-5xl font-black text-white italic">{String(Math.round((trainedDaysCount / daysInMonth) * 100))}%</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Mes</p>
            </div>
         </div>
@@ -427,7 +425,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                   <div key={ex.id} className="bg-slate-800/60 p-7 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
                     <div>
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
-                      {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{String(ex.weight)}kg</span></p>}
+                      <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{String(ex.weight)}kg</span></p>
                     </div>
                     <button onClick={async () => {
                       const currentExs = workouts[sel] || [];
@@ -458,24 +456,18 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30 outline-none" />}
 
                 <div className="flex flex-col gap-4">
-                  {form.zone === 'Cardio' ? (
-                    <InputBlock label="TIEMPO REALIZADO" value={form.minutes} unit="MIN" onAdjust={(amt) => adjustValue('minutes', amt)} />
-                  ) : (
-                    <>
-                      <InputBlock label="SERIES LOGRADAS" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
-                      <InputBlock label="REPETICIONES" value={form.reps} unit="R" onAdjust={(amt) => adjustValue('reps', amt)} />
-                      <InputBlock label="PESO CARGADO" value={form.weight} unit="KG" onAdjust={(amt) => adjustValue('weight', amt)} />
-                    </>
-                  )}
+                  <InputBlock label="SERIES LOGRADAS" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
+                  <InputBlock label="REPETICIONES" value={form.reps} unit="R" onAdjust={(amt) => adjustValue('reps', amt)} />
+                  <InputBlock label="PESO CARGADO" value={form.weight} unit="KG" onAdjust={(amt) => adjustValue('weight', amt)} />
                 </div>
                 
                 <button 
                   type="button"
                   onClick={add} 
                   disabled={isSaving}
-                  className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all ${validationMsg ? 'bg-amber-600 scale-95' : 'bg-orange-600'}`}
+                  className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all ${msg ? 'bg-amber-600 scale-95' : 'bg-orange-600'}`}
                 >
-                  {isSaving ? 'PROCESANDO...' : (validationMsg || 'AGREGAR')}
+                  {isSaving ? 'PROCESANDO...' : (msg || 'AGREGAR')}
                 </button>
               </div>
             </div>
@@ -539,7 +531,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
       <Header title="Análisis" subtitle="Rendimiento" onBack={onBack} />
       <main className="p-6 w-full flex-1 flex flex-col items-stretch">
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic outline-none"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
-        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl text-white">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
+        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto text-white">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
       </main>
     </ViewContainer>
   );
@@ -559,7 +551,7 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       const d: Record<string, DocumentData> = {}; 
       s.forEach(docSnap => d[docSnap.id] = docSnap.data()); 
       setPhotos(d); 
-    }, (err) => console.error("Foto snapshot error:", err)); 
+    }, (err) => console.error("Foto error:", err)); 
     return () => unsub(); 
   }, [user]);
 
@@ -579,11 +571,11 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   return (
     <ViewContainer>
-      <Header title="Historial" subtitle="Logros Visuales" onBack={onBack} />
+      <Header title="Historial" subtitle="Visual" onBack={onBack} />
       <main className="p-6 space-y-6 w-full flex-1 overflow-y-auto pb-10">
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={onUpload} />
         {historyData.map(item => (
-          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-600 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
+          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
         ))}
       </main>
       {zoom && (
@@ -634,14 +626,13 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  // Pantalla de error si faltan las llaves
   if (firebaseConfig.apiKey === "TU_API_KEY") {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
         <AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" />
-        <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Configuración Requerida</h1>
+        <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Sin Llaves</h1>
         <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">
-          Ernesto, por favor pega tus llaves de Firebase en el archivo App.tsx para activar el sistema.
+          Ernesto, pega tus llaves de Firebase en el código para activar Physical Tracker 100.
         </p>
       </div>
     );
