@@ -1,16 +1,18 @@
-const CACHE_NAME = 'gym-pro-v1';
+const VERSION = 'gympro-v2';
 
-// Se ejecuta cuando se instala la app
 self.addEventListener('install', (event) => {
+  console.log('SW: Instalando nueva versión...');
   self.skipWaiting();
 });
 
-// Se ejecuta cuando la app toma el control
 self.addEventListener('activate', (event) => {
+  console.log('SW: App activa y lista.');
   event.waitUntil(clients.claim());
 });
 
-// Obligatorio para que Chrome detecte que la app funciona "offline"
+// Este evento es OBLIGATORIO para que aparezca el botón de "Instalar"
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
+  event.respondWith(fetch(event.request).catch(() => {
+    return new Response('Estás offline, pero la App sigue aquí.');
+  }));
 });

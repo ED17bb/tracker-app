@@ -1,26 +1,26 @@
 {
   "short_name": "GymPro",
-  "name": "Gym Pro Ernesto",
+  "name": "GymTracker Pro Ernesto",
+  "description": "Tu registro profesional de fuerza y progreso",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon.png",
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "start_url": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay"],
+  "display_override": ["standalone", "fullscreen"],
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
-  "scope": "/",
   "orientation": "portrait",
-  "description": "Seguimiento de entrenamiento profesional"
+  "scope": "/"
 }

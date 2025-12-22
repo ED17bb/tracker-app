@@ -2,37 +2,50 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icon.png" />
-    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0f172a">
     
-    <!-- Configuración para Apple (iPhone) -->
+    <!-- Ícono para el navegador y Apple -->
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png">
+    
+    <!-- El archivo de identidad -->
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Gym Pro</title>
+
+    <!-- Configuraciones de pantalla completa -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="GymPro">
-    <link rel="apple-touch-icon" href="/icon.png">
-    
-    <!-- Vinculación del Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    
-    <title>Gym Pro</title>
-    
+
     <script>
-      // Este script activa la capacidad de instalación
+      // Registro del Service Worker (Motor de la App)
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Solo intentamos registrarlo si estamos en la URL real (HTTPS)
-          if (window.location.protocol === 'https:') {
-            navigator.serviceWorker.register('/sw.js')
-              .then(reg => console.log('SW registrado con éxito'))
-              .catch(err => console.error('Error al registrar SW', err));
+          // Verificamos que el entorno sea seguro (HTTPS o Localhost)
+          // Esto evita el error de protocolo ':' no soportado en StackBlitz
+          const isSecureContext = window.location.protocol === 'https:' || 
+                                 window.location.hostname === 'localhost' || 
+                                 window.location.hostname === '127.0.0.1';
+
+          if (isSecureContext) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then((reg) => {
+                console.log('✅ GymPro: Motor de instalación activo', reg.scope);
+              })
+              .catch((err) => {
+                console.error('❌ GymPro: Fallo en el motor', err);
+              });
+          } else {
+            console.log('ℹ️ GymPro: Registro de motor omitido en este entorno de desarrollo.');
           }
         });
       }
     </script>
   </head>
-  <body class="bg-slate-900 font-sans antialiased">
+  <body class="bg-slate-900">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
