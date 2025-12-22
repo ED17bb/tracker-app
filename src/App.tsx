@@ -38,13 +38,13 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- DECLARACIONES GLOBALES PARA TYPESCRIPT ---
+// --- DECLARACIONES GLOBALES PARA EVITAR ERRORES DE BUILD ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: AQUÍ es donde debes pegar tus llaves. El nombre es 'firebaseConfig'.
+// Ernesto: AQUÍ pegas tus llaves. Mantén este nombre 'firebaseConfig'.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -55,15 +55,10 @@ const firebaseConfig = {
 };
 
 
-
-// Lógica de configuración unificada (Resuelve errores TS6133 y TS2552)
+// Lógica de configuración unificada
 const getFinalConfig = () => {
-  // Si Ernesto pegó sus llaves, las usamos
   if (firebaseConfig.apiKey !== "TU_API_KEY") return firebaseConfig;
-  // Si no, intentamos usar las del entorno del sistema
-  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-    return JSON.parse(__firebase_config);
-  }
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) return JSON.parse(__firebase_config);
   return firebaseConfig;
 };
 
@@ -72,10 +67,9 @@ const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// REGLA CRÍTICA: Sanitizar el appId para que Firestore no de error de "odd segments"
-// Esto quita las "/" del nombre interno que usa StackBlitz
+// REGLA CRÍTICA: Sanitizar el appId para evitar errores de segmentos en Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
-const appId = rawAppId.replace(/\//g, '_');
+const appId = rawAppId.replace(/[^a-zA-Z0-9_-]/g, '_'); // Solo permite caracteres seguros
 
 // --- INTERFACES ---
 interface Exercise {
@@ -115,7 +109,7 @@ const BODY_ZONES: Record<string, string[]> = {
   "Antebrazos": ["Curl de Muñeca", "Curl Inverso", "Paseo del Granjero"],
   "Abdomen": ["Crunch", "Plancha", "Elevación de Piernas", "Rueda Abdominal"],
   "Full Body": ["Burpees", "Thrusters", "Clean & Press", "Zancadas", "Salto al Cajón"],
-  "Cardio": ["Cinta de Correr", "Bicicleta Estática", "Elíptica", "Remo", "Cuerda", "Natación"]
+  "Cardio": ["Cinta de Correr", "Bicicleta", "Elíptica", "Remo", "Cuerda", "Natación"]
 };
 
 const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
@@ -187,9 +181,9 @@ const InputBlock = ({
       <button 
         type="button"
         onClick={() => onAdjust(-1)} 
-        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Minus size={28}/>
+        <Minus size={24}/>
       </button>
       <div className="flex items-baseline justify-center gap-1">
         <span className="text-white font-black text-5xl">{value}</span>
@@ -198,9 +192,9 @@ const InputBlock = ({
       <button 
         type="button"
         onClick={() => onAdjust(1)} 
-        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Plus size={28}/>
+        <Plus size={24}/>
       </button>
     </div>
   </div>
@@ -302,7 +296,7 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
         </div>
         <div className="bg-gradient-to-br from-orange-500/10 to-orange-800/10 border border-orange-500/20 p-10 rounded-[3.5rem] flex justify-between items-center shadow-xl w-full">
           <div><div className="text-orange-500 font-black text-xs uppercase tracking-widest leading-none">Grasa Corporal</div><p className="text-[10px] text-slate-500 uppercase font-bold mt-2">Cálculo Marino</p></div>
-          <div className="text-7xl font-black italic text-white">{String(fat || '--')}<span className="text-2xl ml-1 opacity-50">%</span></div>
+          <div className="text-7xl font-black italic text-white">{String(fat || '--')}<span className="text-2xl ml-1 opacity-60">%</span></div>
         </div>
         <div className="grid grid-cols-2 gap-4"><Field label="Altura" field="height" unit="cm" /><Field label="Peso" field="weight" unit="kg" /></div>
         <div className="grid grid-cols-3 gap-3"><Field label="Cuello" field="neck" unit="cm" /><Field label="Abdomen" field="waist" unit="cm" /><Field label="Cadera" field="hip" unit="cm" /></div>
@@ -319,6 +313,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const [form, setForm] = useState({ zone: '', name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' });
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [validationMsg, setValidationMsg] = useState<string | null>(null);
 
   const y = date.getFullYear(), m = date.getMonth();
   const trainedDaysCount = useMemo(() => Object.keys(workouts).filter(k => {
@@ -339,8 +334,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   const add = async () => {
     const finalName = form.name === 'Otro' ? form.customName : form.name;
-    // REGLA: Verificamos que tengamos los datos mínimos antes de intentar guardar
-    if (!finalName || !form.zone || !sel || !user) return;
+    
+    // VALIDACIÓN CRUCIAL PARA ERNESTO:
+    if (!form.zone) { setValidationMsg("¡Elige una Zona!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
+    if (!finalName) { setValidationMsg("¡Elige un Ejercicio!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
+    if (!sel || !user) { setValidationMsg("Error de sesión"); return; }
     
     setIsSaving(true);
     const isCardio = form.zone === 'Cardio';
@@ -356,16 +354,19 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     };
 
     try {
-      // Obtenemos los ejercicios actuales del día seleccionado
+      // Regla de Oro: Accedemos directamente a la colección de días del usuario
       const currentDayExs = workouts[sel] || [];
-      // Generamos la referencia exacta al documento del día
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
-      // Guardamos la lista actualizada
+      
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
-      // Limpiamos los campos numéricos para la siguiente entrada
+      
+      // Limpiamos los valores numéricos pero mantenemos la zona para carga rápida
       setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', minutes: '0', customName: '' }));
+      setValidationMsg("¡AGREGADO!");
+      setTimeout(() => setValidationMsg(null), 1000);
     } catch (e) {
-      console.error("Error al guardar ejercicio:", e);
+      console.error("Error al guardar:", e);
+      setValidationMsg("Error Firebase");
     } finally {
       setIsSaving(false);
     }
@@ -453,7 +454,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                   <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md outline-none"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
                 </div>
 
-                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio hiciste?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30 outline-none" />}
+                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30 outline-none" />}
 
                 <div className="flex flex-col gap-4">
                   {form.zone === 'Cardio' ? (
@@ -468,11 +469,12 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 </div>
                 
                 <button 
-                  onClick={(e) => { e.preventDefault(); add(); }} 
+                  type="button"
+                  onClick={add} 
                   disabled={isSaving}
-                  className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
+                  className={`w-full py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all ${validationMsg ? 'bg-amber-600 scale-95' : 'bg-orange-600'}`}
                 >
-                  {isSaving ? 'PROCESANDO...' : 'AGREGAR'}
+                  {isSaving ? 'PROCESANDO...' : (validationMsg || 'AGREGAR')}
                 </button>
               </div>
             </div>
@@ -494,7 +496,7 @@ const FailureView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       const d: Record<string, DocumentData> = {}; 
       s.forEach(docSnap => d[docSnap.id] = docSnap.data()); 
       setList(d); 
-    }, (err) => console.error("Fallo snapshot error:", err)); 
+    }, (err) => console.error("Fallo error:", err)); 
     return () => unsub(); 
   }, [user]);
 
@@ -631,7 +633,7 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  // Pantalla de error si faltan las llaves (usa AlertTriangle para el build de Vercel)
+  // Pantalla de error si faltan las llaves
   if (firebaseConfig.apiKey === "TU_API_KEY") {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
