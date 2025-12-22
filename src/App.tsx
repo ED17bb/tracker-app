@@ -54,7 +54,6 @@ const firebaseConfig = {
 };
 
 
-
 // Lógica de configuración unificada
 const finalConfig = (manualFirebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
   ? JSON.parse(__firebase_config)
