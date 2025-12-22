@@ -37,8 +37,14 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: Pega tus llaves aquí si vas a usar tu propia consola de Firebase.
+// --- DECLARACIONES GLOBALES (Vercel/StackBlitz) ---
+declare const __firebase_config: string | undefined;
+declare const __app_id: string | undefined;
+declare const __initial_auth_token: string | undefined;
+
+// --- CONFIGURACIÓN E INICIALIZACIÓN ---
+// Ernesto: Puedes pegar tus llaves aquí si prefieres manual, 
+// pero el sistema intentará detectar las del entorno automáticamente.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -49,21 +55,15 @@ const firebaseConfig = {
 };
 
 
-// --- DECLARACIONES DE ENTORNO ---
-declare const __firebase_config: string | undefined;
-declare const __app_id: string | undefined;
-declare const __initial_auth_token: string | undefined;
-
-// Lógica de configuración dinámica
-const finalConfig = (firebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
+const finalConfig = (manualFirebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
   ? JSON.parse(__firebase_config)
-  : firebaseConfig;
+  : manualFirebaseConfig;
 
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// REGLA DE ORO: Sanitizar el appId para evitar errores de Firebase
+// REGLA 1: Sanitizar appId para evitar errores de segmentos en Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -175,20 +175,20 @@ const InputBlock = ({
     <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-4">{label}</span>
     <div className="flex items-center justify-between w-full px-4">
       <button 
-        onClick={() => onAdjust(-1)} 
-        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        onClick={(e) => { e.preventDefault(); onAdjust(-1); }} 
+        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Minus size={24}/>
+        <Minus size={28}/>
       </button>
       <div className="flex items-baseline justify-center gap-1">
         <span className="text-white font-black text-5xl">{value}</span>
         <span className="text-xs text-orange-500 font-black uppercase">{unit}</span>
       </div>
       <button 
-        onClick={() => onAdjust(1)} 
-        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        onClick={(e) => { e.preventDefault(); onAdjust(1); }} 
+        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Plus size={24}/>
+        <Plus size={28}/>
       </button>
     </div>
   </div>
@@ -206,15 +206,15 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
         </div>
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-center text-white">
+        <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-center text-white">
           Physical Tracker 100
         </h1>
       </div>
       
       <div className="grid grid-cols-1 w-full gap-5">
         {[
-          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Composición Corporal' },
-          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesión' },
+          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Perfil Corporal' },
+          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesiones' },
           { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'from-slate-700 to-slate-900', desc: 'Personal Records' },
           { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'from-orange-400 to-orange-600', desc: 'Carga Progresiva' },
           { id: 'history', label: 'Historial', icon: History, color: 'from-slate-800 to-black', desc: 'Galería Mensual' },
@@ -345,10 +345,13 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     };
 
     try {
+      // Regla de Oro: Actualizamos el documento directamente con el ID del día (sel)
       const currentDayExs = workouts[sel] || [];
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
-      setForm(prev => ({ ...prev, name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' }));
+      
+      // Limpiamos los campos numéricos pero mantenemos zona y nombre para permitir registrar la siguiente serie rápido
+      setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', minutes: '0', customName: '' }));
     } catch (e) {
       console.error("Error al guardar serie:", e);
     } finally {
@@ -358,8 +361,8 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   const adjustValue = (field: string, amt: number) => {
     setForm(prev => {
-      const val = parseFloat(prev[field as keyof typeof prev]) || 0;
-      const newVal = Math.max(0, val + amt);
+      const currentVal = parseFloat(prev[field as keyof typeof prev] || '0');
+      const newVal = Math.max(0, currentVal + amt);
       return { ...prev, [field]: (Math.round(newVal * 10) / 10).toString() };
     });
   };
@@ -392,7 +395,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
             const active = (workouts[k] as Exercise[])?.length > 0;
             const isToday = new Date().toDateString() === new Date(y, m, dayNum).toDateString();
             return (
-              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
+              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
             );
           })}
         </div>
@@ -404,8 +407,9 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 <h2 className="font-black text-3xl uppercase tracking-tighter italic text-white leading-none">{sel}</h2>
                 <button onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white active:scale-90"><X size={28}/></button>
               </div>
+              
               <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
-                {(workouts[sel] || []).map((ex) => (
+                {(workouts[sel] || []).length > 0 ? (workouts[sel] || []).map((ex) => (
                   <div key={ex.id} className="bg-slate-800/60 p-7 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
                     <div>
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
@@ -415,31 +419,36 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                       const currentExs = workouts[sel] || [];
                       const upd = currentExs.filter((e: Exercise) => e.id !== ex.id);
                       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel), { exercises: upd });
-                    }} className="text-slate-600 p-4 bg-slate-700/30 rounded-2xl hover:text-rose-500"><Trash2 size={24}/></button>
+                    }} className="text-slate-600 p-4 bg-slate-700/30 rounded-2xl hover:text-rose-500 transition-colors"><Trash2 size={24}/></button>
                   </div>
-                ))}
+                )) : (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-10">
+                    <Dumbbell size={80} className="text-white" />
+                    <p className="mt-4 font-black uppercase tracking-widest text-xs text-white">Sin ejercicios aún</p>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4 overflow-y-auto">
                 {lastWeightVal && (
                   <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2">
-                    <Info size={14}/> Récord: {String(lastWeightVal)}kg
+                    <Info size={14}/> Récord previo: {String(lastWeightVal)}kg
                   </div>
                 )}
                 
                 <div className="grid grid-cols-2 gap-4">
-                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
-                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
+                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md outline-none"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
+                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md outline-none"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
                 </div>
 
-                {form.name === 'Otro' && <input type="text" placeholder="Nombre ejercicio..." value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30" />}
+                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio hiciste?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30 outline-none" />}
 
                 <div className="flex flex-col gap-4">
                   {form.zone === 'Cardio' ? (
-                    <InputBlock label="TIEMPO" value={form.minutes} unit="MIN" onAdjust={(amt) => adjustValue('minutes', amt)} />
+                    <InputBlock label="TIEMPO REALIZADO" value={form.minutes} unit="MIN" onAdjust={(amt) => adjustValue('minutes', amt)} />
                   ) : (
                     <>
-                      <InputBlock label="SERIES" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
+                      <InputBlock label="SERIES LOGRADAS" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
                       <InputBlock label="REPETICIONES" value={form.reps} unit="R" onAdjust={(amt) => adjustValue('reps', amt)} />
                       <InputBlock label="PESO CARGADO" value={form.weight} unit="KG" onAdjust={(amt) => adjustValue('weight', amt)} />
                     </>
@@ -447,7 +456,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 </div>
                 
                 <button 
-                  onClick={add} 
+                  onClick={(e) => { e.preventDefault(); add(); }} 
                   disabled={isSaving}
                   className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
                 >
@@ -491,8 +500,8 @@ const FailureView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
         <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30 shadow-2xl">
           <h3 className="font-black text-orange-500 mb-8 flex items-center gap-4 uppercase tracking-tighter text-xl italic"><Skull size={32}/> Registrar PR</h3>
           <div className="space-y-6">
-            <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-5 rounded-2xl text-white font-black text-sm border-none shadow-md"><option value="">SELECCIONA EJERCICIO...</option>{Array.from(new Set(Object.values(workouts).flat().map(e=>(e as Exercise).name))).map(n=><option key={n} value={n}>{n}</option>)}</select>
-            <div className="grid grid-cols-2 gap-5"><input type="number" placeholder="Kg" value={f.weight} onChange={e=>setF({...f, weight: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl"/><input type="number" placeholder="Reps" value={f.reps} onChange={e=>setF({...f, reps: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl"/></div>
+            <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-5 rounded-2xl text-white font-black text-sm border-none shadow-md outline-none"><option value="">SELECCIONA EJERCICIO...</option>{Array.from(new Set(Object.values(workouts).flat().map(e=>(e as Exercise).name))).map(n=><option key={n} value={n}>{n}</option>)}</select>
+            <div className="grid grid-cols-2 gap-5"><input type="number" placeholder="Kg" value={f.weight} onChange={e=>setF({...f, weight: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl outline-none"/><input type="number" placeholder="Reps" value={f.reps} onChange={e=>setF({...f, reps: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl outline-none"/></div>
             <button onClick={savePr} className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-widest text-xs italic">GUARDAR RECORD</button>
           </div>
         </div>
@@ -514,7 +523,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
     <ViewContainer>
       <Header title="Análisis" subtitle="Rendimiento" onBack={onBack} />
       <main className="p-6 w-full flex-1 flex flex-col items-stretch">
-        <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
+        <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic outline-none"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
         {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl text-white">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
       </main>
     </ViewContainer>
@@ -585,7 +594,9 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (e) { console.error("Auth error:", e); }
+      } catch (e) {
+        console.error("Auth error:", e);
+      }
     };
     initAuth();
     const unsub = onAuthStateChanged(auth, u => {
@@ -597,16 +608,19 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    // REGLA 1: Usamos la ruta estricta para escuchar los cambios de entrenamiento
     const qColl = collection(db, 'artifacts', appId, 'users', user.uid, 'days');
     const unsub = onSnapshot(qColl, s => {
       const d: Record<string, Exercise[]> = {};
-      s.forEach(docSnap => d[docSnap.id] = (docSnap.data().exercises || []) as Exercise[]);
+      s.forEach(docSnap => {
+        d[docSnap.id] = (docSnap.data().exercises || []) as Exercise[];
+      });
       setWorkouts(d);
     }, (err) => console.error("Snapshot error:", err));
     return () => unsub();
   }, [user]);
 
-  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Iniciando Physical Tracker...</span></div>;
+  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40 text-center">Iniciando Sistema...</span></div>;
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
@@ -618,7 +632,7 @@ export default function App() {
   };
 
   return (
-    <div className="font-sans text-slate-100 min-h-screen bg-slate-950 selection:bg-orange-500/30 flex flex-col items-stretch">
+    <div className="font-sans text-slate-100 min-h-screen bg-slate-950 selection:bg-orange-500/30 flex flex-col items-stretch w-full">
       <div className="flex-1 w-full flex flex-col items-stretch">
         {views[view] || views.home}
       </div>
