@@ -73,6 +73,7 @@ const firebaseConfig = {
   appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
 };
 
+
 const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
 
 let app: FirebaseApp;
@@ -315,20 +316,30 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   };
 
   const InputBlock = ({ label, field, unit, step = 1 }: { label: string, field: 'sets' | 'reps' | 'weight' | 'minutes', unit: string, step?: number }) => (
-    <div className="bg-slate-900/80 p-4 rounded-[2rem] border border-white/10 shadow-lg flex flex-col items-center">
+    <div className="bg-slate-900 p-4 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
       <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">{label}</span>
-      <div className="flex items-center justify-between w-full">
-        <button onClick={() => adjustValue(field, -step)} className="p-3 bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all"><Minus size={18}/></button>
+      <div className="flex items-center justify-between w-full px-2">
+        <button 
+          onClick={() => adjustValue(field, -step)} 
+          className="w-12 h-12 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-95 transition-all shadow-md"
+        >
+          <Minus size={20}/>
+        </button>
         <div className="flex items-baseline gap-1">
           <input 
             type="number" 
             value={form[field]} 
             onChange={e => setForm({...form, [field]: e.target.value})} 
-            className="bg-transparent text-white font-black text-4xl w-20 text-center outline-none"
+            className="bg-transparent text-white font-black text-4xl w-16 text-center outline-none"
           />
-          <span className="text-[10px] text-orange-500 font-black">{unit}</span>
+          <span className="text-[11px] text-orange-500 font-black uppercase">{unit}</span>
         </div>
-        <button onClick={() => adjustValue(field, step)} className="p-3 bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all"><Plus size={18}/></button>
+        <button 
+          onClick={() => adjustValue(field, step)} 
+          className="w-12 h-12 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-95 transition-all shadow-md"
+        >
+          <Plus size={20}/>
+        </button>
       </div>
     </div>
   );
@@ -336,13 +347,13 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   return (
     <ViewContainer>
       <Header title="Entrenamiento" subtitle="Physical Progress" onBack={onBack} />
-      <main className="p-6 w-full flex-1 flex flex-col items-stretch">
-        <div className="flex justify-between items-center mb-8 bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
+      <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
+        <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
           <button className="p-5 bg-slate-800 rounded-2xl text-orange-500 active:scale-90" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={28}/></button>
           <span className="font-black text-white uppercase tracking-widest text-base italic">{months[m]} {y}</span>
           <button className="p-5 bg-slate-800 rounded-2xl text-orange-500 active:scale-90" onClick={() => setDate(new Date(y, m + 1, 1))}><ChevronRight size={28}/></button>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4">
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
               <div className="text-5xl font-black text-white italic">{trainedDaysCount}</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días</p>
@@ -352,7 +363,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Mes</p>
            </div>
         </div>
-        <div className="grid grid-cols-7 gap-3 mb-10">
+        <div className="grid grid-cols-7 gap-3 pb-4">
           {['D','L','M','X','J','V','S'].map(d => <div key={d} className="text-[12px] text-slate-700 font-black uppercase text-center">{d}</div>)}
           {Array.from({ length: getFirstDayOfMonth(y, m) }).map((_, i) => <div key={i} />)}
           {Array.from({ length: getDaysInMonth(y, m) }).map((_, i) => {
@@ -360,24 +371,24 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
             const active = (workouts[k] as Exercise[])?.length > 0;
             const isToday = new Date().toDateString() === new Date(y, m, day).toDateString();
             return (
-              <button key={day} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{day}</button>
+              <button key={day} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{day}</button>
             );
           })}
         </div>
         
         {open && sel && (
           <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-end">
-            <div className="bg-slate-900 w-full rounded-t-[4rem] p-8 max-h-[95vh] flex flex-col border-t border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-300">
-              <div className="flex justify-between items-center mb-8 px-2">
+            <div className="bg-slate-900 w-full rounded-t-[4rem] p-6 max-h-[98vh] flex flex-col border-t border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-300">
+              <div className="flex justify-between items-center mb-6 px-4">
                 <h2 className="font-black text-3xl uppercase tracking-tighter italic text-white leading-none">{sel}</h2>
-                <button onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white active:scale-90"><X size={32}/></button>
+                <button onClick={() => setOpen(false)} className="p-4 bg-slate-800 rounded-full text-white active:scale-90"><X size={28}/></button>
               </div>
-              <div className="flex-1 overflow-y-auto mb-10 space-y-6 px-2">
+              <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
                 {workouts[sel]?.map((ex) => (
-                  <div key={ex.id} className="bg-slate-800/60 p-7 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
+                  <div key={ex.id} className="bg-slate-800/60 p-6 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
                     <div>
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
-                      {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-500 font-bold mt-2 uppercase tracking-widest">{ex.sets}x{ex.reps} — <span className="text-white text-lg font-black">{ex.weight}kg</span></p>}
+                      {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{ex.weight}kg</span></p>}
                     </div>
                     <button onClick={async () => {
                       const currentExs = workouts[sel] || [];
@@ -388,35 +399,32 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 ))}
               </div>
               
-              {/* PANEL DE ENTRADA REDISEÑADO PARA MÓVIL */}
-              <div className="space-y-6 bg-slate-950/50 p-8 rounded-[3rem] border border-white/5 shadow-inner">
-                {!form.zone.includes('Cardio') && lastWeight && <div className="text-xs font-black text-orange-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Info size={16}/> Récord: {lastWeight.weight}kg</div>}
-                
+              <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-sm text-white font-black border-none appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
-                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-sm text-white font-black border-none appearance-none shadow-md"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
+                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
+                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
                 </div>
 
-                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/20" />}
+                {form.name === 'Otro' && <input type="text" placeholder="Nombre ejercicio..." value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30" />}
 
                 {form.zone === 'Cardio' ? (
-                  <InputBlock label="Tiempo realizado" field="minutes" unit="MIN" />
+                  <InputBlock label="TIEMPO" field="minutes" unit="MIN" />
                 ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <InputBlock label="Series" field="sets" unit="S" />
-                      <InputBlock label="Reps" field="reps" unit="R" />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <InputBlock label="SERIES" field="sets" unit="S" />
+                      <InputBlock label="REPS" field="reps" unit="R" />
                     </div>
-                    <InputBlock label="Peso Cargado" field="weight" unit="KG" step={2.5} />
+                    <InputBlock label="PESO" field="weight" unit="KG" step={1} />
                   </div>
                 )}
                 
                 <button 
                   onClick={add} 
                   disabled={isSaving}
-                  className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-sm italic active:scale-95 transition-all disabled:opacity-50"
+                  className="w-full bg-orange-600 py-6 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isSaving ? 'GUARDANDO...' : (form.zone === 'Cardio' ? 'REGISTRAR CARDIO' : 'AÑADIR SERIE')}
+                  {isSaving ? 'PROCESANDO...' : (form.zone === 'Cardio' ? 'REGISTRAR CARDIO' : 'AÑADIR SERIE')}
                 </button>
               </div>
             </div>
