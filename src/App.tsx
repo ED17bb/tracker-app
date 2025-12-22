@@ -20,12 +20,12 @@ import {
 } from 'lucide-react';
 
 // Firebase Imports
-import { initializeApp, type FirebaseApp } from "firebase/app";
+import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   signInAnonymously, 
   onAuthStateChanged,
-  type Auth,
+  signInWithCustomToken,
   type User as FirebaseUser
 } from "firebase/auth";
 import { 
@@ -35,9 +35,19 @@ import {
   setDoc, 
   getDoc,
   onSnapshot,
-  type Firestore,
+  query,
   type DocumentData
 } from "firebase/firestore";
+
+// --- CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// REGLA 1: Sanitizar el appId para evitar errores de segmentos en Firestore
+const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
+const appId = rawAppId.replace(/\//g, '_');
 
 // --- INTERFACES ---
 interface Exercise {
@@ -63,30 +73,13 @@ interface ProfileData {
   calculatedFat?: string | null;
 }
 
-// --- CONFIGURACIÓN FIREBASE ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
-  authDomain: "physical-tracker-100.firebaseapp.com",
-  projectId: "physical-tracker-100",
-  storageBucket: "physical-tracker-100.firebasestorage.app",
-  messagingSenderId: "139291216970",
-  appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
+// --- ESTILOS ---
+const cleanTitleStyle: React.CSSProperties = {
+  color: 'white',
+  fontWeight: 900,
 };
 
-
-const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
-
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-
-if (isConfigValid) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-}
-
-const cleanTitleStyle: React.CSSProperties = {
+const titleOutlineStyle: React.CSSProperties = {
   color: 'white',
   fontWeight: 900,
 };
@@ -135,7 +128,7 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
-// --- COMPONENTES UI ---
+// --- COMPONENTES UI REUTILIZABLES ---
 
 const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }> = ({ title, subtitle, onBack }) => (
   <header className="bg-slate-900/95 backdrop-blur-md border-b border-white/5 p-6 sticky top-0 z-40 w-full shadow-lg">
@@ -160,6 +153,40 @@ const ViewContainer: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   </div>
 );
 
+const InputBlock = ({ 
+  label, 
+  value, 
+  unit, 
+  onAdjust 
+}: { 
+  label: string, 
+  value: string, 
+  unit: string, 
+  onAdjust: (amt: number) => void 
+}) => (
+  <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
+    <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-4">{label}</span>
+    <div className="flex items-center justify-between w-full px-4">
+      <button 
+        onClick={() => onAdjust(-1)} 
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+      >
+        <Minus size={24}/>
+      </button>
+      <div className="flex items-baseline justify-center gap-1">
+        <span className="text-white font-black text-5xl">{value}</span>
+        <span className="text-xs text-orange-500 font-black uppercase">{unit}</span>
+      </div>
+      <button 
+        onClick={() => onAdjust(1)} 
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+      >
+        <Plus size={24}/>
+      </button>
+    </div>
+  </div>
+);
+
 // --- VISTAS ---
 
 const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => (
@@ -167,20 +194,20 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
     <div className="flex-1 flex flex-col p-6 space-y-12 justify-center items-center w-full">
       <div className="text-center w-full">
         <div className="relative inline-block mb-8">
-          <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-10 rounded-full"></div>
+          <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-10 rounded-full animate-pulse"></div>
           <div className="relative bg-slate-900 p-1 rounded-3xl border border-white/10 shadow-2xl overflow-hidden w-20 h-20 flex items-center justify-center">
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
         </div>
-        <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none text-center text-white" style={cleanTitleStyle}>
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-center text-white" style={cleanTitleStyle}>
           Physical Tracker 100
         </h1>
       </div>
       
       <div className="grid grid-cols-1 w-full gap-5">
         {[
-          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Composición Corporal' },
-          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesión' },
+          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Perfil Corporal' },
+          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesiones' },
           { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'from-slate-700 to-slate-900', desc: 'Personal Records' },
           { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'from-orange-400 to-orange-600', desc: 'Carga Progresiva' },
           { id: 'history', label: 'Historial', icon: History, color: 'from-slate-800 to-black', desc: 'Galería Mensual' },
@@ -208,7 +235,13 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user && db) { getDoc(doc(db, 'profile', user.uid)).then(s => s.exists() && setP(s.data() as ProfileData)); }
+    if (!user) return;
+    const fetchProfile = async () => {
+      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) setP(snap.data() as ProfileData);
+    };
+    fetchProfile();
   }, [user]);
 
   const fat = useMemo(() => {
@@ -219,7 +252,17 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
     return hi ? (495 / (1.29579 - 0.35004 * Math.log10(w + hi - n) + 0.22100 * Math.log10(h)) - 450).toFixed(1) : null;
   }, [p]);
 
-  const Field: React.FC<{ label: string; field: keyof ProfileData; unit: string }> = ({ label, field, unit }) => (
+  const save = async () => {
+    if(!user) return;
+    setSaving(true);
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await setDoc(docRef, { ...p, calculatedFat: fat });
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const Field = ({ label, field, unit }: { label: string; field: keyof ProfileData; unit: string }) => (
     <div className="bg-slate-900/60 p-5 rounded-3xl border border-white/5 shadow-inner w-full">
       <label className="text-[10px] text-slate-500 uppercase font-black mb-2 block tracking-widest">{label}</label>
       <div className="flex items-baseline gap-2">
@@ -240,12 +283,12 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
         </div>
         <div className="bg-gradient-to-br from-orange-500/10 to-orange-800/10 border border-orange-500/20 p-10 rounded-[3.5rem] flex justify-between items-center shadow-xl w-full">
           <div><div className="text-orange-500 font-black text-xs uppercase tracking-widest leading-none">Grasa Corporal</div><p className="text-[10px] text-slate-500 uppercase font-bold mt-2">Cálculo Marino</p></div>
-          <div className="text-7xl font-black italic text-white">{fat || '--'}<span className="text-2xl ml-1 opacity-50">%</span></div>
+          <div className="text-7xl font-black italic text-white">{String(fat || '--')}<span className="text-2xl ml-1 opacity-50">%</span></div>
         </div>
         <div className="grid grid-cols-2 gap-4"><Field label="Altura" field="height" unit="cm" /><Field label="Peso" field="weight" unit="kg" /></div>
         <div className="grid grid-cols-3 gap-3"><Field label="Cuello" field="neck" unit="cm" /><Field label="Abdomen" field="waist" unit="cm" /><Field label="Cadera" field="hip" unit="cm" /></div>
         <div className="grid grid-cols-3 gap-3"><Field label="Pecho" field="chest" unit="cm" /><Field label="Brazos" field="arms" unit="cm" /><Field label="Muslo" field="thigh" unit="cm" /></div>
-        <button onClick={async () => { setSaving(true); await setDoc(doc(db, 'profile', user.uid), { ...p, calculatedFat: fat }); setSaving(false); }} disabled={saving} className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl active:scale-[0.98] transition-all uppercase tracking-widest text-sm italic mt-4">{saving ? 'Guardando...' : 'Sincronizar Datos'}</button>
+        <button onClick={save} disabled={saving} className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl active:scale-[0.98] transition-all uppercase tracking-widest text-sm italic mt-4">{saving ? 'Guardando...' : 'Sincronizar Datos'}</button>
       </main>
     </ViewContainer>
   );
@@ -266,13 +309,12 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   }).length, [workouts, y, m]);
   const progressPct = Math.round((trainedDaysCount / daysInMonth) * 100);
 
-  // Lógica para recuperar el último peso registrado del ejercicio seleccionado
   const lastWeightVal = useMemo(() => {
     if (!form.name || !sel || form.name === 'Otro') return null;
-    const allDays = Object.entries(workouts).filter(([dKey, exs]) => dKey !== sel && (exs as Exercise[]).some(ex => ex.name === form.name));
-    allDays.sort((a, b) => b[0].localeCompare(a[0]));
-    if (allDays.length > 0) {
-      const found = (allDays[0][1] as Exercise[]).find(ex => ex.name === form.name);
+    const allEntries = Object.entries(workouts).filter(([dKey, exs]) => dKey !== sel && (exs as Exercise[]).some(ex => ex.name === form.name));
+    allEntries.sort((a, b) => b[0].localeCompare(a[0]));
+    if (allEntries.length > 0) {
+      const found = (allEntries[0][1] as Exercise[]).find(ex => ex.name === form.name);
       return found?.weight || null;
     }
     return null;
@@ -280,7 +322,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   const add = async () => {
     const finalName = form.name === 'Otro' ? form.customName : form.name;
-    if (!finalName || !sel || !db || !user) return;
+    if (!finalName || !sel || !user) return;
     
     setIsSaving(true);
     const isCardio = form.zone === 'Cardio';
@@ -296,55 +338,24 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     };
 
     try {
-      const currentDayExercises = workouts[sel] || [];
-      await setDoc(doc(db, 'workouts', user.uid, 'days', sel), { 
-        exercises: [...currentDayExercises, item] 
-      });
-      // Limpiar formulario excepto zona para permitir carga rápida
+      const currentDayExs = workouts[sel] || [];
+      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
+      await setDoc(docRef, { exercises: [...currentDayExs, item] });
       setForm(prev => ({ ...prev, name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' }));
     } catch (e) {
-      console.error("Error al guardar:", e);
+      console.error("Error al guardar serie:", e);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const adjustValue = (field: 'sets' | 'reps' | 'weight' | 'minutes', amount: number) => {
+  const adjustValue = (field: 'sets' | 'reps' | 'weight' | 'minutes', amt: number) => {
     setForm(prev => {
       const val = parseFloat(prev[field]) || 0;
-      const newVal = Math.max(0, val + amount);
-      return { ...prev, [field]: newVal.toString() };
+      const newVal = Math.max(0, val + amt);
+      return { ...prev, [field]: (Math.round(newVal * 10) / 10).toString() };
     });
   };
-
-  const InputBlock = ({ label, field, unit, step = 1 }: { label: string, field: 'sets' | 'reps' | 'weight' | 'minutes', unit: string, step?: number }) => (
-    <div className="bg-slate-900/80 p-5 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
-      <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-4">{label}</span>
-      <div className="flex items-center justify-between w-full px-4">
-        <button 
-          onClick={() => adjustValue(field, -step)} 
-          className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
-        >
-          <Minus size={24}/>
-        </button>
-        <div className="flex items-baseline justify-center gap-1">
-          <input 
-            type="number" 
-            value={form[field]} 
-            onChange={e => setForm({...form, [field]: e.target.value})} 
-            className="bg-transparent text-white font-black text-5xl w-24 text-center outline-none"
-          />
-          <span className="text-xs text-orange-500 font-black uppercase">{unit}</span>
-        </div>
-        <button 
-          onClick={() => adjustValue(field, step)} 
-          className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
-        >
-          <Plus size={24}/>
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <ViewContainer>
@@ -357,11 +368,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
         </div>
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic">{trainedDaysCount}</div>
+              <div className="text-5xl font-black text-white italic" style={titleOutlineStyle}>{String(trainedDaysCount)}</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días</p>
            </div>
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic">{progressPct}%</div>
+              <div className="text-5xl font-black text-white italic" style={titleOutlineStyle}>{String(progressPct)}%</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Mes</p>
            </div>
         </div>
@@ -369,11 +380,12 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
           {['D','L','M','X','J','V','S'].map(d => <div key={d} className="text-[12px] text-slate-700 font-black uppercase text-center">{d}</div>)}
           {Array.from({ length: getFirstDayOfMonth(y, m) }).map((_, i) => <div key={i} />)}
           {Array.from({ length: getDaysInMonth(y, m) }).map((_, i) => {
-            const day = i + 1, k = formatDateKey(y, m, day);
+            const dayNum = i + 1;
+            const k = formatDateKey(y, m, dayNum);
             const active = (workouts[k] as Exercise[])?.length > 0;
-            const isToday = new Date().toDateString() === new Date(y, m, day).toDateString();
+            const isToday = new Date().toDateString() === new Date(y, m, dayNum).toDateString();
             return (
-              <button key={day} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{day}</button>
+              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
             );
           })}
         </div>
@@ -386,23 +398,23 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 <button onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white active:scale-90"><X size={28}/></button>
               </div>
               <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
-                {workouts[sel]?.map((ex) => (
+                {(workouts[sel] || []).map((ex) => (
                   <div key={ex.id} className="bg-slate-800/60 p-7 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
                     <div>
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
-                      {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{ex.weight}kg</span></p>}
+                      {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{String(ex.weight)}kg</span></p>}
                     </div>
                     <button onClick={async () => {
                       const currentExs = workouts[sel] || [];
                       const upd = currentExs.filter((e: Exercise) => e.id !== ex.id);
-                      await setDoc(doc(db, 'workouts', user.uid, 'days', sel), { exercises: upd });
+                      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel), { exercises: upd });
                     }} className="text-slate-600 p-4 bg-slate-700/30 rounded-2xl hover:text-rose-500"><Trash2 size={24}/></button>
                   </div>
                 ))}
               </div>
               
               <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4 overflow-y-auto">
-                {lastWeightVal && <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2"><Info size={14}/> Récord: {lastWeightVal}kg</div>}
+                {lastWeightVal && <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2"><Info size={14}/> Récord: {String(lastWeightVal)}kg</div>}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
@@ -411,15 +423,17 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
                 {form.name === 'Otro' && <input type="text" placeholder="Nombre ejercicio..." value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-orange-500/30" />}
 
-                {form.zone === 'Cardio' ? (
-                  <InputBlock label="TIEMPO" field="minutes" unit="MIN" />
-                ) : (
-                  <div className="space-y-4">
-                    <InputBlock label="SERIES" field="sets" unit="S" />
-                    <InputBlock label="REPETICIONES" field="reps" unit="R" />
-                    <InputBlock label="PESO CARGADO" field="weight" unit="KG" step={1} />
-                  </div>
-                )}
+                <div className="flex flex-col gap-4">
+                  {form.zone === 'Cardio' ? (
+                    <InputBlock label="TIEMPO" value={form.minutes} unit="MIN" onAdjust={(amt) => adjustValue('minutes', amt)} />
+                  ) : (
+                    <>
+                      <InputBlock label="SERIES" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
+                      <InputBlock label="REPETICIONES" value={form.reps} unit="R" onAdjust={(amt) => adjustValue('reps', amt)} />
+                      <InputBlock label="PESO CARGADO" value={form.weight} unit="KG" onAdjust={(amt) => adjustValue('weight', amt)} />
+                    </>
+                  )}
+                </div>
                 
                 <button 
                   onClick={add} 
@@ -440,22 +454,40 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 const FailureView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exercise[]>; onBack: () => void }> = ({ user, workouts, onBack }) => {
   const [list, setList] = useState<Record<string, DocumentData>>({});
   const [f, setF] = useState({ name: '', weight: '', reps: '' });
-  useEffect(() => { if (user && db) { const unsub = onSnapshot(collection(db, 'failures', user.uid, 'records'), s => { const d: Record<string, DocumentData> = {}; s.forEach(docSnap => d[docSnap.id] = docSnap.data()); setList(d); }); return () => unsub(); } }, [user]);
+  
+  useEffect(() => { 
+    if (!user) return; 
+    const qColl = collection(db, 'artifacts', appId, 'users', user.uid, 'failures');
+    const unsub = onSnapshot(qColl, s => { 
+      const d: Record<string, DocumentData> = {}; 
+      s.forEach(docSnap => d[docSnap.id] = docSnap.data()); 
+      setList(d); 
+    }, (err) => console.error("Fallo snapshot error:", err)); 
+    return () => unsub(); 
+  }, [user]);
+
+  const savePr = async () => {
+    if (!user || !f.name || !f.weight) return;
+    const w = parseFloat(f.weight), r = parseInt(f.reps);
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'failures', f.name), { weight: w, reps: r, date: new Date().toLocaleDateString(), oneRM: Math.round(w * (1 + r / 30)) });
+    setF({ name: '', weight: '', reps: '' });
+  };
+
   return (
     <ViewContainer>
       <Header title="Fallo" subtitle="Personal Records" onBack={onBack} />
       <main className="p-6 space-y-8 w-full flex-1">
-        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30">
+        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30 shadow-2xl">
           <h3 className="font-black text-orange-500 mb-8 flex items-center gap-4 uppercase tracking-tighter text-xl italic"><Skull size={32}/> Registrar PR</h3>
           <div className="space-y-6">
             <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-5 rounded-2xl text-white font-black text-sm border-none shadow-md"><option value="">SELECCIONA EJERCICIO...</option>{Array.from(new Set(Object.values(workouts).flat().map(e=>(e as Exercise).name))).map(n=><option key={n} value={n}>{n}</option>)}</select>
             <div className="grid grid-cols-2 gap-5"><input type="number" placeholder="Kg" value={f.weight} onChange={e=>setF({...f, weight: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl"/><input type="number" placeholder="Reps" value={f.reps} onChange={e=>setF({...f, reps: e.target.value})} className="bg-slate-900 p-6 rounded-2xl text-center font-black text-white text-3xl"/></div>
-            <button onClick={async () => { if (f.name && f.weight && db) { const w = parseFloat(f.weight), r = parseInt(f.reps); await setDoc(doc(db, 'failures', user.uid, 'records', f.name), { weight: w, reps: r, date: new Date().toLocaleDateString(), oneRM: Math.round(w * (1 + r / 30)) }); setF({ name: '', weight: '', reps: '' }); } }} className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-widest text-xs italic">GUARDAR RECORD</button>
+            <button onClick={savePr} className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-widest text-xs italic">GUARDAR RECORD</button>
           </div>
         </div>
         <div className="space-y-6">
           {Object.entries(list).map(([name, d]) => (
-            <div key={name} className="bg-slate-800/60 p-8 rounded-[3rem] flex justify-between border border-white/5 items-center w-full shadow-2xl"><div><p className="font-black text-white uppercase text-2xl italic leading-none">{name}</p><p className="text-xs text-slate-500 font-black uppercase mt-2 tracking-widest">{d.date}</p></div><div className="text-right"><p className="font-black text-orange-500 text-5xl italic leading-none">{d.weight}kg</p><p className="text-[10px] text-emerald-500 font-black uppercase mt-2">1RM: {d.oneRM}kg</p></div></div>
+            <div key={name} className="bg-slate-800/60 p-8 rounded-[3rem] flex justify-between border border-white/5 items-center w-full shadow-2xl"><div><p className="font-black text-white uppercase text-2xl italic leading-none">{name}</p><p className="text-xs text-slate-500 font-black uppercase mt-2 tracking-widest">{String(d.date)}</p></div><div className="text-right"><p className="font-black text-orange-500 text-5xl italic leading-none">{String(d.weight)}kg</p><p className="text-[10px] text-emerald-500 font-black uppercase mt-2">1RM: {String(d.oneRM)}kg</p></div></div>
           ))}
         </div>
       </main>
@@ -472,7 +504,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
       <Header title="Análisis" subtitle="Rendimiento" onBack={onBack} />
       <main className="p-6 w-full flex-1 flex flex-col items-stretch">
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
-        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-950 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl">{d.weight}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
+        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-950 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
       </main>
     </ViewContainer>
   );
@@ -484,15 +516,39 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const [zoom, setZoom] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const selRef = useRef<string | null>(null);
-  useEffect(() => { if (user && db) { const unsub = onSnapshot(collection(db, 'photos', user.uid, 'monthly'), s => { const d: Record<string, DocumentData> = {}; s.forEach(docSnap => d[docSnap.id] = docSnap.data()); setPhotos(d); }); return () => unsub(); } }, [user]);
+
+  useEffect(() => { 
+    if (!user) return; 
+    const qColl = collection(db, 'artifacts', appId, 'users', user.uid, 'photos');
+    const unsub = onSnapshot(qColl, s => { 
+      const d: Record<string, DocumentData> = {}; 
+      s.forEach(docSnap => d[docSnap.id] = docSnap.data()); 
+      setPhotos(d); 
+    }, (err) => console.error("Foto snapshot error:", err)); 
+    return () => unsub(); 
+  }, [user]);
+
   const historyData = useMemo(() => { const res = []; const now = new Date(); for (let i = 0; i < 6; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); const m = d.getMonth(), y = d.getFullYear(), total = getDaysInMonth(y, m); let count = 0; Object.keys(workouts).forEach(k => { const [ky, km] = k.split('-').map(Number); if (ky === y && km === m + 1 && (workouts[k] as Exercise[])?.length > 0) count++; }); res.push({ key: `${y}-${m}`, month: months[m], year: y, pct: Math.round((count / total) * 100) }); } return res; }, [workouts]);
+  
+  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; 
+    if (f && selRef.current && user) { 
+      setUp(selRef.current); 
+      try {
+        const b64 = await compressImage(f); 
+        await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'photos', selRef.current), { image: b64, date: new Date().toLocaleDateString() }); 
+      } catch (err) { console.error(err); }
+      setUp(null); 
+    }
+  };
+
   return (
     <ViewContainer>
       <Header title="Historial" subtitle="Logros Visuales" onBack={onBack} />
       <main className="p-6 space-y-6 w-full flex-1 overflow-y-auto pb-10">
-        <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={async e => { const f = e.target.files?.[0]; if (f && selRef.current && db) { setUp(selRef.current); const b64 = await compressImage(f); await setDoc(doc(db, 'photos', user.uid, 'monthly', selRef.current), { image: b64, date: new Date().toLocaleDateString() }); setUp(null); } }} />
+        <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={onUpload} />
         {historyData.map(item => (
-          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{item.year}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{item.pct}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
+          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
         ))}
       </main>
       {zoom && (
@@ -511,46 +567,45 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!document.getElementById('tailwind-cdn')) {
-      const script = document.createElement('script');
-      script.id = 'tailwind-cdn';
-      script.src = 'https://cdn.tailwindcss.com';
-      document.head.appendChild(script);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isConfigValid || !auth) { setLoading(false); return; }
-    const unsub = onAuthStateChanged(auth, async u => {
-      if (!u) { try { await signInAnonymously(auth); } catch(e) { setLoading(false); } }
-      else { setUser(u); }
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.error("Auth error:", e);
+      }
+    };
+    initAuth();
+    const unsub = onAuthStateChanged(auth, u => {
+      setUser(u);
+      if (u) setLoading(false);
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
-    if (!user || !isConfigValid || !db) return;
-    const unsub = onSnapshot(collection(db, 'workouts', user.uid, 'days'), s => {
-      const d: Record<string, Exercise[]> = {}; s.forEach(docSnap => d[docSnap.id] = (docSnap.data().exercises || []) as Exercise[]);
-      setWorkouts(d); setLoading(false);
-    }, (err) => {
-      console.error("Error Firestore:", err);
-      setLoading(false);
-    });
+    if (!user) return;
+    const qColl = collection(db, 'artifacts', appId, 'users', user.uid, 'days');
+    const unsub = onSnapshot(qColl, s => {
+      const d: Record<string, Exercise[]> = {};
+      s.forEach(docSnap => d[docSnap.id] = (docSnap.data().exercises || []) as Exercise[]);
+      setWorkouts(d);
+    }, (err) => console.error("Snapshot error:", err));
     return () => unsub();
   }, [user]);
 
-  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" /><h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase text-white">Sin Conexión</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">Ernesto, copia tus llaves de Firebase en el código para activar Physical Tracker 100.</p></div>;
-
-  if (loading && !user) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Physical Tracker 100</span></div>;
+  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Physical Tracker 100</span></div>;
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
-    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div>Error</div>,
-    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div>Error</div>,
-    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div>Error</div>,
+    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
+    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
+    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
     charts: <ChartsView workouts={workouts} onBack={() => setView('home')} />,
-    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div>Error</div>,
+    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
   };
 
   return (
