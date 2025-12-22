@@ -12,7 +12,6 @@ import {
   History,
   Camera,
   AlertTriangle,
-  Info,
   ChevronRight as ChevronRightIcon,
   Timer,
   Plus,
@@ -116,9 +115,9 @@ const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = (e: ProgressEvent<FileReader>) => {
+    reader.onload = (e: any) => {
       const img = new Image();
-      img.src = e.target?.result as string;
+      img.src = e.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX = 800;
@@ -266,16 +265,6 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   }).length, [workouts, y, m]);
   const progressPct = Math.round((trainedDaysCount / daysInMonth) * 100);
 
-  const lastWeight = useMemo(() => {
-    if (!form.name || !sel || form.name === 'Otro') return null;
-    const entries = Object.entries(workouts).filter(([dk, d]) => dk !== sel && (d as Exercise[]).some(ex => ex.name === form.name)).sort((a,b) => b[0].localeCompare(a[0]));
-    if (entries.length > 0) {
-      const lastEx = (entries[0][1] as Exercise[]).find(ex => ex.name === form.name);
-      return lastEx ? { weight: lastEx.weight, date: entries[0][0] } : null;
-    }
-    return null;
-  }, [form.name, workouts, sel]);
-
   const add = async () => {
     if ((!form.name && !form.customName) || !sel || !db || !user) return;
     setIsSaving(true);
@@ -318,21 +307,21 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const InputBlock = ({ label, field, unit, step = 1 }: { label: string, field: 'sets' | 'reps' | 'weight' | 'minutes', unit: string, step?: number }) => (
     <div className="bg-slate-900 p-4 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
       <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">{label}</span>
-      <div className="flex items-center justify-between w-full px-2">
+      <div className="flex items-center justify-between w-full px-2 gap-2">
         <button 
           onClick={() => adjustValue(field, -step)} 
           className="w-12 h-12 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-95 transition-all shadow-md"
         >
           <Minus size={20}/>
         </button>
-        <div className="flex items-baseline gap-1">
+        <div className="flex-1 flex items-baseline justify-center gap-1">
           <input 
             type="number" 
             value={form[field]} 
             onChange={e => setForm({...form, [field]: e.target.value})} 
-            className="bg-transparent text-white font-black text-4xl w-16 text-center outline-none"
+            className="bg-transparent text-white font-black text-3xl w-14 text-center outline-none"
           />
-          <span className="text-[11px] text-orange-500 font-black uppercase">{unit}</span>
+          <span className="text-[10px] text-orange-500 font-black uppercase">{unit}</span>
         </div>
         <button 
           onClick={() => adjustValue(field, step)} 
@@ -385,7 +374,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               </div>
               <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
                 {workouts[sel]?.map((ex) => (
-                  <div key={ex.id} className="bg-slate-800/60 p-6 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
+                  <div key={ex.id} className="bg-slate-800/60 p-7 rounded-[2.5rem] flex justify-between items-center border border-white/5 shadow-md w-full">
                     <div>
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
                       {ex.zone === 'Cardio' ? <p className="text-xs text-orange-500 font-bold mt-2 uppercase flex items-center gap-2"><Timer size={14}/> <span className="text-white text-lg">{ex.minutes} minutos</span></p> : <p className="text-xs text-orange-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{ex.weight}kg</span></p>}
@@ -422,7 +411,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 <button 
                   onClick={add} 
                   disabled={isSaving}
-                  className="w-full bg-orange-600 py-6 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
+                  className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
                 >
                   {isSaving ? 'PROCESANDO...' : (form.zone === 'Cardio' ? 'REGISTRAR CARDIO' : 'AÑADIR SERIE')}
                 </button>
@@ -443,7 +432,7 @@ const FailureView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     <ViewContainer>
       <Header title="Fallo" subtitle="Personal Records" onBack={onBack} />
       <main className="p-6 space-y-8 w-full flex-1">
-        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30">
+        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30 shadow-2xl">
           <h3 className="font-black text-orange-500 mb-8 flex items-center gap-4 uppercase tracking-tighter text-xl italic"><Skull size={32}/> Registrar PR</h3>
           <div className="space-y-6">
             <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-5 rounded-2xl text-white font-black text-sm border-none shadow-md"><option value="">SELECCIONA EJERCICIO...</option>{Array.from(new Set(Object.values(workouts).flat().map(e=>(e as Exercise).name))).map(n=><option key={n} value={n}>{n}</option>)}</select>
@@ -479,6 +468,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
 const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exercise[]>; onBack: () => void }> = ({ user, workouts, onBack }) => {
   const [photos, setPhotos] = useState<Record<string, DocumentData>>({});
   const [up, setUp] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const selRef = useRef<string | null>(null);
   useEffect(() => { if (user && db) { const unsub = onSnapshot(collection(db, 'photos', user.uid, 'monthly'), s => { const d: Record<string, DocumentData> = {}; s.forEach(docSnap => d[docSnap.id] = docSnap.data()); setPhotos(d); }); return () => unsub(); } }, [user]);
@@ -489,9 +479,14 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       <main className="p-6 space-y-6 w-full flex-1 overflow-y-auto pb-10">
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={async e => { const f = e.target.files?.[0]; if (f && selRef.current && db) { setUp(selRef.current); const b64 = await compressImage(f); await setDoc(doc(db, 'photos', user.uid, 'monthly', selRef.current), { image: b64, date: new Date().toLocaleDateString() }); setUp(null); } }} />
         {historyData.map(item => (
-          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{item.year}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{item.pct}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
+          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{item.year}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{item.pct}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
         ))}
       </main>
+      {zoom && (
+        <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setZoom(null)}>
+          <img src={zoom} className="max-w-full max-h-[85vh] rounded-[3rem] shadow-2xl border border-white/10" alt="Zoom" />
+        </div>
+      )}
     </ViewContainer>
   );
 };
