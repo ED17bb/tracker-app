@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   History,
   Camera,
+  AlertTriangle,
   ChevronRight as ChevronRightIcon,
   Timer,
   Plus,
@@ -38,7 +39,7 @@ import {
 } from "firebase/firestore";
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: AQUÍ es donde debes pegar tus llaves nuevamente.
+// Ernesto: AQUÍ es donde debes pegar tus llaves.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -50,23 +51,20 @@ const firebaseConfig = {
 
 
 // --- GLOBALES DE ENTORNO ---
-// Declaramos estas variables para que Vercel no dé error de "no definido"
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
-// Lógica inteligente: Si no has pegado tus llaves arriba, intenta usar las del sistema
+// Lógica para usar llaves manuales o del sistema
 const finalConfig = firebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined'
   ? JSON.parse(__firebase_config)
   : firebaseConfig;
-
-const isConfigValid = finalConfig.apiKey !== "TU_API_KEY";
 
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Sanitizar el appId para evitar errores de segmentos en Firestore
+// Sanitizar el appId
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -209,7 +207,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
     <div className="flex-1 flex flex-col p-6 space-y-12 justify-center items-center w-full">
       <div className="text-center w-full">
         <div className="relative inline-block mb-8">
-          <div className="absolute inset-0 bg-sky-500 blur-3xl opacity-10 rounded-full animate-pulse"></div>
+          <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-10 rounded-full"></div>
           <div className="relative bg-slate-900 p-1 rounded-3xl border border-white/10 shadow-2xl overflow-hidden w-20 h-20 flex items-center justify-center">
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
