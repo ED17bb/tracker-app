@@ -55,6 +55,7 @@ const firebaseConfig = {
 };
 
 
+
 // Lógica de configuración unificada (Resuelve errores TS6133 y TS2552)
 const getFinalConfig = () => {
   // Si Ernesto pegó sus llaves, las usamos
