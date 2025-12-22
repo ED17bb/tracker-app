@@ -246,7 +246,7 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
 const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exercise[]>; onBack: () => void }> = ({ user, workouts, onBack }) => {
   const [date, setDate] = useState(new Date());
   const [sel, setSel] = useState<string | null>(null);
-  const [form, setForm] = useState({ zone: '', name: '', sets: '', reps: '', weight: '', minutes: '' });
+  const [form, setForm] = useState({ zone: '', name: '', customName: '', sets: '', reps: '', weight: '', minutes: '' });
   const [open, setOpen] = useState(false);
 
   const y = date.getFullYear(), m = date.getMonth();
@@ -258,7 +258,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const progressPct = Math.round((trainedDaysCount / daysInMonth) * 100);
 
   const lastWeight = useMemo(() => {
-    if (!form.name || !sel) return null;
+    if (!form.name || !sel || form.name === 'Otro') return null;
     const entries = Object.entries(workouts).filter(([dk, d]) => dk !== sel && (d as Exercise[]).some(ex => ex.name === form.name)).sort((a,b) => b[0].localeCompare(a[0]));
     if (entries.length > 0) {
       const lastEx = (entries[0][1] as Exercise[]).find(ex => ex.name === form.name);
@@ -268,15 +268,19 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   }, [form.name, workouts, sel]);
 
   const add = async () => {
-    if (!form.name || !sel || !db) return;
+    if ((!form.name && !form.customName) || !sel || !db) return;
     const isCardio = form.zone === 'Cardio';
+    const finalName = form.name === 'Otro' ? form.customName : form.name;
+    
+    if (!finalName) return;
+
     const item: Exercise = { 
-      id: Date.now(), zone: form.zone, name: form.name, 
+      id: Date.now(), zone: form.zone, name: finalName, 
       sets: isCardio ? undefined : form.sets, reps: isCardio ? undefined : form.reps, 
       weight: isCardio ? undefined : parseFloat(form.weight), minutes: isCardio ? form.minutes : undefined
     };
     await setDoc(doc(db, 'workouts', user.uid, 'days', sel), { exercises: [...(workouts[sel] || []), item] });
-    setForm({ ...form, sets: '', reps: '', weight: '', minutes: '' });
+    setForm({ ...form, name: '', customName: '', sets: '', reps: '', weight: '', minutes: '' });
   };
 
   return (
@@ -296,11 +300,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
           {['D','L','M','X','J','V','S'].map(d => <div key={d} className="text-[10px] text-slate-700 font-black uppercase text-center">{d}</div>)}
           {Array.from({ length: getFirstDayOfMonth(y, m) }).map((_, i) => <div key={i} />)}
           {Array.from({ length: getDaysInMonth(y, m) }).map((_, i) => {
-            const d = i + 1, k = formatDateKey(y, m, d);
+            const day = i + 1, k = formatDateKey(y, m, day);
             const active = (workouts[k] as Exercise[])?.length > 0;
-            const isToday = new Date().toDateString() === new Date(y, m, d).toDateString();
+            const isToday = new Date().toDateString() === new Date(y, m, day).toDateString();
             return (
-              <button key={d} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-xl text-sm font-black transition-all border flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{d}</button>
+              <button key={day} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-xl text-sm font-black transition-all border flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{day}</button>
             );
           })}
         </div>
@@ -319,12 +323,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               <div className="space-y-4 bg-slate-950/50 p-6 rounded-[2rem] border border-white/5 shadow-inner">
                 {!form.zone.includes('Cardio') && lastWeight && <div className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Info size={14}/> Récord: {lastWeight.weight}kg</div>}
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-4 rounded-xl text-[10px] text-white font-black border-none"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
-                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-[10px] text-white font-black border-none"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}</select>
+                  <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-4 rounded-xl text-[10px] text-white font-black border-none appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
+                  <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-[10px] text-white font-black border-none appearance-none shadow-md"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro (Escribir...)</option></select>
                 </div>
-                {form.zone === 'Cardio' ? <input type="number" placeholder="Minutos..." value={form.minutes} onChange={e=>setForm({...form, minutes: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full border border-white/5" /> : <div className="grid grid-cols-3 gap-3">
-                    <input type="number" placeholder="S" value={form.sets} onChange={e=>setForm({...form, sets: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/><input type="number" placeholder="R" value={form.reps} onChange={e=>setForm({...form, reps: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/><input type="number" placeholder="Kg" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/>
-                  </div>}
+                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio hiciste?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-sm w-full border border-orange-500/30" />}
+                {form.zone === 'Cardio' ? <input type="number" placeholder="Minutos..." value={form.minutes} onChange={e=>setForm({...form, minutes: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full border border-white/5" /> : <div className="grid grid-cols-3 gap-3"><input type="number" placeholder="S" value={form.sets} onChange={e=>setForm({...form, sets: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/><input type="number" placeholder="R" value={form.reps} onChange={e=>setForm({...form, reps: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/><input type="number" placeholder="Kg" value={form.weight} onChange={e=>setForm({...form, weight: e.target.value})} className="bg-slate-900 p-4 rounded-xl text-center font-black text-white text-xl w-full"/></div>}
                 <button onClick={add} className="w-full bg-orange-600 py-5 rounded-2xl font-black text-white shadow-xl uppercase tracking-widest text-[10px] italic">{form.zone === 'Cardio' ? 'REGISTRAR CARDIO' : 'AÑADIR SERIE'}</button>
               </div>
             </div>
@@ -445,9 +448,9 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><AlertTriangle size={64} className="text-amber-500 mb-8 animate-bounce" /><h1 className="text-2xl font-black mb-4 italic tracking-tighter uppercase">Faltan Credenciales</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Copia tus llaves de Firebase en el código para iniciar el sistema.</p></div>;
+  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><AlertTriangle size={64} className="text-orange-500 mb-8 animate-bounce" /><h1 className="text-2xl font-black mb-4 italic tracking-tighter uppercase text-white">Configuración Pendiente</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Copia tus llaves de Firebase en el código para iniciar el sistema.</p></div>;
 
-  if (loading && !user) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-6"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-16 h-16 overflow-hidden flex items-center justify-center shadow-xl"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.4em] uppercase text-[9px] font-black opacity-40">Iniciando Physical Tracker 100</span></div>;
+  if (loading && !user) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-6"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-16 h-16 overflow-hidden flex items-center justify-center shadow-xl"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.4em] uppercase text-[9px] font-black opacity-40">Physical Tracker 100</span></div>;
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
