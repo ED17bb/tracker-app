@@ -16,14 +16,14 @@ import {
   Info
 } from 'lucide-react';
 
-// Firebase Imports
-import { initializeApp, FirebaseApp } from "firebase/app";
+// Firebase Imports - Corregidos con 'type' para cumplir con verbatimModuleSyntax
+import { initializeApp, type FirebaseApp } from "firebase/app";
 import { 
   getAuth, 
   signInAnonymously, 
   onAuthStateChanged,
-  Auth,
-  User as FirebaseUser
+  type Auth,
+  type User as FirebaseUser
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -32,8 +32,8 @@ import {
   setDoc, 
   getDoc,
   onSnapshot,
-  Firestore,
-  DocumentData
+  type Firestore,
+  type DocumentData
 } from "firebase/firestore";
 
 // --- INTERFACES DE TYPESCRIPT ---
@@ -68,7 +68,6 @@ const firebaseConfig = {
   messagingSenderId: "139291216970",
   appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
 };
-
 
 const isConfigValid = firebaseConfig.apiKey !== "TU_API_KEY";
 
@@ -576,7 +575,7 @@ export default function App() {
     </div>
   );
 
-  const views: Record<string, JSX.Element> = {
+  const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
     profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div>Error de usuario</div>,
     workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div>Error de usuario</div>,
