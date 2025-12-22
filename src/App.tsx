@@ -14,8 +14,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Plus,
   Minus,
-  Info,
-  AlertTriangle
+  Info
 } from 'lucide-react';
 
 // Firebase Imports
@@ -67,7 +66,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // REGLA CRÍTICA: Sanitizar el appId para evitar errores de segmentos en Firestore
-const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'gymtracker-ernesto-fix';
+const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'gymtracker-ernesto-force';
 const appId = rawAppId.replace(/[^a-zA-Z0-9_-]/g, '_'); 
 
 // --- INTERFACES ---
@@ -99,7 +98,7 @@ const months = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-// LISTA DE ZONAS (Cardio ha sido eliminado por completo)
+// LISTA DE ZONAS PURA FUERZA
 const BODY_ZONES: Record<string, string[]> = {
   "Pecho": ["Press Banca", "Press Inclinado", "Aperturas", "Flexiones", "Cruce de Poleas"],
   "Espalda": ["Dominadas", "Remo con Barra", "Jalón al Pecho", "Remo Gironda", "Peso Muerto"],
@@ -289,7 +288,7 @@ const ProfileView: React.FC<{ user: FirebaseUser; onBack: () => void }> = ({ use
       <main className="p-6 space-y-6 w-full flex-1">
         <div className="flex bg-slate-900 p-2 rounded-[2rem] border border-white/5">
           {['male', 'female'].map(g => (
-            <button key={g} onClick={() => setP({...p, gender: g})} className={`flex-1 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${p.gender === g ? 'bg-orange-600 text-white shadow-md' : 'text-slate-600'}`}>{g === 'male' ? 'Hombre' : 'Mujer'}</button>
+            <button key={g} onClick={() => setP({...p, gender: g})} className={`flex-1 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${p.gender === g ? 'bg-orange-600 text-white shadow-md' : 'text-slate-500'}`}>{g === 'male' ? 'Hombre' : 'Mujer'}</button>
           ))}
         </div>
         <div className="bg-gradient-to-br from-orange-500/10 to-orange-800/10 border border-orange-500/20 p-10 rounded-[3.5rem] flex justify-between items-center shadow-xl w-full">
@@ -334,14 +333,13 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const add = async () => {
     const finalName = form.name === 'Otro' ? form.customName : form.name;
     
-    // VALIDACIÓN:
+    // VALIDACIÓN CORREGIDA
     if (!form.zone) { setMsg("¡Elige Zona!"); setTimeout(()=>setMsg(null), 1500); return; }
-    if (!finalName) { setMsg("¡Elige Ejercicio!"); setTimeout(()=>setValidationMsg(null), 1500); return; }
+    if (!finalName) { setMsg("¡Elige Ejercicio!"); setTimeout(()=>setMsg(null), 1500); return; }
     if (!sel || !user) return;
     
     setIsSaving(true);
 
-    // OBJETO LIMPIO: Solo enviamos lo que Firebase acepta (Sin undefined)
     const item: Exercise = { 
       id: Date.now(), 
       zone: form.zone, 
@@ -353,17 +351,13 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
     try {
       const currentDayExs = workouts[sel] || [];
-      // Ruta de guardado reforzada
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
-      
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
-      
-      // Limpiamos campos para la siguiente entrada
       setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', customName: '' }));
       setMsg("¡AGREGADO!");
       setTimeout(() => setMsg(null), 1000);
     } catch (e) {
-      console.error("Error al guardar:", e);
+      console.error(e);
       setMsg("Error Firebase");
       setTimeout(() => setMsg(null), 2000);
     } finally {
@@ -381,7 +375,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   return (
     <ViewContainer>
-      <Header title="Entrenamiento" subtitle="Sesión Actual" onBack={onBack} />
+      <Header title="Entrenamiento" subtitle="Registro de Progreso" onBack={onBack} />
       <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
           <button className="p-5 bg-slate-800 rounded-2xl text-orange-500 active:scale-90" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={28}/></button>
@@ -531,7 +525,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
       <Header title="Análisis" subtitle="Rendimiento" onBack={onBack} />
       <main className="p-6 w-full flex-1 flex flex-col items-stretch">
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic outline-none"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
-        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto text-white">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
+        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto text-white">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl text-white">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
       </main>
     </ViewContainer>
   );
@@ -551,7 +545,7 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       const d: Record<string, DocumentData> = {}; 
       s.forEach(docSnap => d[docSnap.id] = docSnap.data()); 
       setPhotos(d); 
-    }, (err) => console.error("Foto error:", err)); 
+    }, (err) => console.error("Foto snapshot error:", err)); 
     return () => unsub(); 
   }, [user]);
 
@@ -629,7 +623,7 @@ export default function App() {
   if (firebaseConfig.apiKey === "TU_API_KEY") {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
-        <AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" />
+        <Dumbbell size={80} className="text-orange-500 mb-8 animate-bounce" />
         <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Sin Llaves</h1>
         <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">
           Ernesto, pega tus llaves de Firebase en el código para activar Physical Tracker 100.
