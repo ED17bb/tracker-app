@@ -15,7 +15,8 @@ import {
   Timer,
   Plus,
   Minus,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 
 // Firebase Imports
@@ -37,13 +38,13 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- DECLARACIONES GLOBALES (Para evitar errores de build) ---
+// --- DECLARACIONES GLOBALES PARA TYPESCRIPT ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: Pega tus llaves aquí.
+// Ernesto: AQUÍ es donde pegas tus llaves. Ahora el nombre es consistente en todo el código.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -54,16 +55,19 @@ const firebaseConfig = {
 };
 
 
-// Lógica de configuración unificada
-const finalConfig = (manualFirebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
-  ? JSON.parse(__firebase_config)
-  : manualFirebaseConfig;
+// Lógica de configuración unificada (Corrige errores TS6133 y TS2552)
+const getFinalConfig = () => {
+  if (firebaseConfig.apiKey !== "TU_API_KEY") return firebaseConfig;
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) return JSON.parse(__firebase_config);
+  return firebaseConfig;
+};
 
+const finalConfig = getFinalConfig();
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Sanitizar appId para rutas seguras
+// REGLA CRÍTICA: Sanitizar el appId para evitar errores de segmentos en Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -146,7 +150,7 @@ const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }
         </button>
       )}
       <div className="flex-1 overflow-hidden text-center">
-        <h1 className="text-2xl font-black uppercase italic text-white">{title}</h1>
+        <h1 className="text-2xl font-black uppercase italic text-white leading-none tracking-tighter">{title}</h1>
         {subtitle && <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">{subtitle}</p>}
       </div>
       {onBack && <div className="w-10" />}
@@ -175,20 +179,22 @@ const InputBlock = ({
     <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-4">{label}</span>
     <div className="flex items-center justify-between w-full px-4">
       <button 
-        onClick={(e) => { e.preventDefault(); onAdjust(-1); }} 
-        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        type="button"
+        onClick={() => onAdjust(-1)} 
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Minus size={28}/>
+        <Minus size={24}/>
       </button>
       <div className="flex items-baseline justify-center gap-1">
         <span className="text-white font-black text-5xl">{value}</span>
         <span className="text-xs text-orange-500 font-black uppercase">{unit}</span>
       </div>
       <button 
-        onClick={(e) => { e.preventDefault(); onAdjust(1); }} 
-        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        type="button"
+        onClick={() => onAdjust(1)} 
+        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Plus size={28}/>
+        <Plus size={24}/>
       </button>
     </div>
   </div>
@@ -309,12 +315,10 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   const [isSaving, setIsSaving] = useState(false);
 
   const y = date.getFullYear(), m = date.getMonth();
-  const daysInMonth = getDaysInMonth(y, m);
   const trainedDaysCount = useMemo(() => Object.keys(workouts).filter(k => {
     const [ky, km] = k.split('-').map(Number);
     return ky === y && km === m + 1 && (workouts[k] as Exercise[])?.length > 0;
   }).length, [workouts, y, m]);
-  const progressPct = Math.round((trainedDaysCount / daysInMonth) * 100);
 
   const lastWeightVal = useMemo(() => {
     if (!form.name || !sel || form.name === 'Otro') return null;
@@ -379,7 +383,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días</p>
            </div>
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic">{String(progressPct)}%</div>
+              <div className="text-5xl font-black text-white italic">{String(Math.round((trainedDaysCount / getDaysInMonth(y, m)) * 100))}%</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Mes</p>
            </div>
         </div>
@@ -392,7 +396,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
             const active = (workouts[k] as Exercise[])?.length > 0;
             const isToday = new Date().toDateString() === new Date(y, m, dayNum).toDateString();
             return (
-              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:border-slate-500'}`}>{dayNum}</button>
+              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
             );
           })}
         </div>
@@ -453,7 +457,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 </div>
                 
                 <button 
-                  onClick={(e) => { e.preventDefault(); add(); }} 
+                  onClick={add} 
                   disabled={isSaving}
                   className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
                 >
@@ -616,6 +620,18 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
+  if (firebaseConfig.apiKey === "TU_API_KEY") {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
+        <AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" />
+        <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Sin Llaves</h1>
+        <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">
+          Ernesto, pega tus llaves de Firebase en el código para activar Physical Tracker 100.
+        </p>
+      </div>
+    );
+  }
+
   if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40 text-center">Iniciando Sistema...</span></div>;
 
   const views: Record<string, React.ReactElement> = {
@@ -628,7 +644,7 @@ export default function App() {
   };
 
   return (
-    <div className="font-sans text-slate-100 min-h-screen bg-slate-950 selection:bg-orange-500/30 flex flex-col items-stretch w-full">
+    <div className="font-sans text-slate-100 min-h-screen bg-slate-950 selection:bg-orange-500/30 flex flex-col items-stretch w-full overflow-x-hidden">
       <div className="flex-1 w-full flex flex-col items-stretch">
         {views[view] || views.home}
       </div>
