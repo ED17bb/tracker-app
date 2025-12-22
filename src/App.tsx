@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   History,
   Camera,
-  AlertTriangle,
   ChevronRight as ChevronRightIcon,
   Timer,
   Plus,
@@ -34,10 +33,13 @@ import {
   doc, 
   setDoc, 
   getDoc,
-  onSnapshot,
-  query,
-  type DocumentData
+  onSnapshot
 } from "firebase/firestore";
+
+// --- DECLARACIONES PARA TYPESCRIPT (Evita errores de Vercel) ---
+declare const __firebase_config: string;
+declare const __app_id: string;
+declare const __initial_auth_token: string | undefined;
 
 // --- CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE ---
 const firebaseConfig = JSON.parse(__firebase_config);
@@ -45,7 +47,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// REGLA 1: Sanitizar el appId para evitar errores de segmentos en Firestore
+// Sanitizar el appId para evitar errores de segmentos en Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -128,7 +130,7 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
-// --- COMPONENTES UI REUTILIZABLES ---
+// --- COMPONENTES UI ---
 
 const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }> = ({ title, subtitle, onBack }) => (
   <header className="bg-slate-900/95 backdrop-blur-md border-b border-white/5 p-6 sticky top-0 z-40 w-full shadow-lg">
@@ -206,8 +208,8 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
       
       <div className="grid grid-cols-1 w-full gap-5">
         {[
-          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Perfil Corporal' },
-          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesiones' },
+          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Composición Corporal' },
+          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesión' },
           { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'from-slate-700 to-slate-900', desc: 'Personal Records' },
           { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'from-orange-400 to-orange-600', desc: 'Carga Progresiva' },
           { id: 'history', label: 'Historial', icon: History, color: 'from-slate-800 to-black', desc: 'Galería Mensual' },
@@ -219,7 +221,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
           >
             <div className={`bg-gradient-to-br ${item.color} p-4 rounded-3xl text-white shadow-md group-hover:scale-110 transition-transform`}><item.icon size={30}/></div>
             <div className="flex-1">
-              <span className="block font-black text-2xl tracking-tight uppercase italic text-white leading-none">{item.label}</span>
+              <span className="block font-black text-white text-2xl tracking-tight uppercase italic text-white leading-none">{item.label}</span>
               <span className="text-[11px] text-slate-500 uppercase font-black tracking-widest mt-2 opacity-80">{item.desc}</span>
             </div>
             <ChevronRightIcon className="text-slate-700 group-hover:text-orange-500 transition-colors" size={24} />
@@ -548,7 +550,7 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       <main className="p-6 space-y-6 w-full flex-1 overflow-y-auto pb-10">
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={onUpload} />
         {historyData.map(item => (
-          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
+          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-600 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
         ))}
       </main>
       {zoom && (
