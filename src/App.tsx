@@ -15,7 +15,8 @@ import {
   ChevronRight as ChevronRightIcon,
   Timer,
   Plus,
-  Minus
+  Minus,
+  Info
 } from 'lucide-react';
 
 // Firebase Imports
@@ -166,7 +167,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
     <div className="flex-1 flex flex-col p-6 space-y-12 justify-center items-center w-full">
       <div className="text-center w-full">
         <div className="relative inline-block mb-8">
-          <div className="absolute inset-0 bg-sky-500 blur-3xl opacity-10 rounded-full"></div>
+          <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-10 rounded-full"></div>
           <div className="relative bg-slate-900 p-1 rounded-3xl border border-white/10 shadow-2xl overflow-hidden w-20 h-20 flex items-center justify-center">
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
@@ -265,13 +266,24 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   }).length, [workouts, y, m]);
   const progressPct = Math.round((trainedDaysCount / daysInMonth) * 100);
 
+  // Lógica para recuperar el último peso registrado del ejercicio seleccionado
+  const lastWeightVal = useMemo(() => {
+    if (!form.name || !sel || form.name === 'Otro') return null;
+    const allDays = Object.entries(workouts).filter(([dKey, exs]) => dKey !== sel && (exs as Exercise[]).some(ex => ex.name === form.name));
+    allDays.sort((a, b) => b[0].localeCompare(a[0]));
+    if (allDays.length > 0) {
+      const found = (allDays[0][1] as Exercise[]).find(ex => ex.name === form.name);
+      return found?.weight || null;
+    }
+    return null;
+  }, [form.name, workouts, sel]);
+
   const add = async () => {
-    if ((!form.name && !form.customName) || !sel || !db || !user) return;
-    setIsSaving(true);
-    
-    const isCardio = form.zone === 'Cardio';
     const finalName = form.name === 'Otro' ? form.customName : form.name;
-    if (!finalName) { setIsSaving(false); return; }
+    if (!finalName || !sel || !db || !user) return;
+    
+    setIsSaving(true);
+    const isCardio = form.zone === 'Cardio';
 
     const item: Exercise = { 
       id: Date.now(), 
@@ -288,7 +300,8 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       await setDoc(doc(db, 'workouts', user.uid, 'days', sel), { 
         exercises: [...currentDayExercises, item] 
       });
-      setForm({ ...form, name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' });
+      // Limpiar formulario excepto zona para permitir carga rápida
+      setForm(prev => ({ ...prev, name: '', customName: '', sets: '0', reps: '0', weight: '0', minutes: '0' }));
     } catch (e) {
       console.error("Error al guardar:", e);
     } finally {
@@ -305,29 +318,29 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
   };
 
   const InputBlock = ({ label, field, unit, step = 1 }: { label: string, field: 'sets' | 'reps' | 'weight' | 'minutes', unit: string, step?: number }) => (
-    <div className="bg-slate-900 p-4 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
-      <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">{label}</span>
-      <div className="flex items-center justify-between w-full px-2 gap-2">
+    <div className="bg-slate-900/80 p-5 rounded-[2.5rem] border border-white/5 shadow-inner flex flex-col items-center w-full">
+      <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.2em] mb-4">{label}</span>
+      <div className="flex items-center justify-between w-full px-4">
         <button 
           onClick={() => adjustValue(field, -step)} 
-          className="w-12 h-12 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-95 transition-all shadow-md"
+          className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
         >
-          <Minus size={20}/>
+          <Minus size={24}/>
         </button>
-        <div className="flex-1 flex items-baseline justify-center gap-1">
+        <div className="flex items-baseline justify-center gap-1">
           <input 
             type="number" 
             value={form[field]} 
             onChange={e => setForm({...form, [field]: e.target.value})} 
-            className="bg-transparent text-white font-black text-3xl w-14 text-center outline-none"
+            className="bg-transparent text-white font-black text-5xl w-24 text-center outline-none"
           />
-          <span className="text-[10px] text-orange-500 font-black uppercase">{unit}</span>
+          <span className="text-xs text-orange-500 font-black uppercase">{unit}</span>
         </div>
         <button 
           onClick={() => adjustValue(field, step)} 
-          className="w-12 h-12 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-95 transition-all shadow-md"
+          className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
         >
-          <Plus size={20}/>
+          <Plus size={24}/>
         </button>
       </div>
     </div>
@@ -366,11 +379,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
         </div>
         
         {open && sel && (
-          <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-end">
+          <div className="fixed inset-0 z-50 bg-slate-950/98 flex items-end">
             <div className="bg-slate-900 w-full rounded-t-[4rem] p-6 max-h-[98vh] flex flex-col border-t border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-300">
               <div className="flex justify-between items-center mb-6 px-4">
                 <h2 className="font-black text-3xl uppercase tracking-tighter italic text-white leading-none">{sel}</h2>
-                <button onClick={() => setOpen(false)} className="p-4 bg-slate-800 rounded-full text-white active:scale-90"><X size={28}/></button>
+                <button onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white active:scale-90"><X size={28}/></button>
               </div>
               <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
                 {workouts[sel]?.map((ex) => (
@@ -388,7 +401,9 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 ))}
               </div>
               
-              <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4">
+              <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4 overflow-y-auto">
+                {lastWeightVal && <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2"><Info size={14}/> Récord: {lastWeightVal}kg</div>}
+                
                 <div className="grid grid-cols-2 gap-4">
                   <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
                   <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
@@ -399,12 +414,10 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 {form.zone === 'Cardio' ? (
                   <InputBlock label="TIEMPO" field="minutes" unit="MIN" />
                 ) : (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <InputBlock label="SERIES" field="sets" unit="S" />
-                      <InputBlock label="REPS" field="reps" unit="R" />
-                    </div>
-                    <InputBlock label="PESO" field="weight" unit="KG" step={1} />
+                  <div className="space-y-4">
+                    <InputBlock label="SERIES" field="sets" unit="S" />
+                    <InputBlock label="REPETICIONES" field="reps" unit="R" />
+                    <InputBlock label="PESO CARGADO" field="weight" unit="KG" step={1} />
                   </div>
                 )}
                 
@@ -432,7 +445,7 @@ const FailureView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     <ViewContainer>
       <Header title="Fallo" subtitle="Personal Records" onBack={onBack} />
       <main className="p-6 space-y-8 w-full flex-1">
-        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30 shadow-2xl">
+        <div className="bg-orange-950/20 p-10 rounded-[4rem] border border-orange-500/30">
           <h3 className="font-black text-orange-500 mb-8 flex items-center gap-4 uppercase tracking-tighter text-xl italic"><Skull size={32}/> Registrar PR</h3>
           <div className="space-y-6">
             <select value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-slate-900 p-5 rounded-2xl text-white font-black text-sm border-none shadow-md"><option value="">SELECCIONA EJERCICIO...</option>{Array.from(new Set(Object.values(workouts).flat().map(e=>(e as Exercise).name))).map(n=><option key={n} value={n}>{n}</option>)}</select>
@@ -483,7 +496,7 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
         ))}
       </main>
       {zoom && (
-        <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setZoom(null)}>
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setZoom(null)}>
           <img src={zoom} className="max-w-full max-h-[85vh] rounded-[3rem] shadow-2xl border border-white/10" alt="Zoom" />
         </div>
       )}
@@ -529,7 +542,7 @@ export default function App() {
 
   if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" /><h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase text-white">Sin Conexión</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">Ernesto, copia tus llaves de Firebase en el código para activar Physical Tracker 100.</p></div>;
 
-  if (loading && !user) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-16 h-16 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Physical Tracker 100</span></div>;
+  if (loading && !user) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Physical Tracker 100</span></div>;
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
