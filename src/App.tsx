@@ -44,7 +44,7 @@ declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: AQUÍ es donde pegas tus llaves. Ahora el nombre es consistente en todo el código.
+// Ernesto: AQUÍ es donde debes pegar tus llaves. El nombre es 'firebaseConfig'.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -55,10 +55,14 @@ const firebaseConfig = {
 };
 
 
-// Lógica de configuración unificada (Corrige errores TS6133 y TS2552)
+// Lógica de configuración unificada (Resuelve errores TS6133 y TS2552)
 const getFinalConfig = () => {
+  // Si Ernesto pegó sus llaves, las usamos
   if (firebaseConfig.apiKey !== "TU_API_KEY") return firebaseConfig;
-  if (typeof __firebase_config !== 'undefined' && __firebase_config) return JSON.parse(__firebase_config);
+  // Si no, intentamos usar las del entorno del sistema
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+    return JSON.parse(__firebase_config);
+  }
   return firebaseConfig;
 };
 
@@ -67,7 +71,8 @@ const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// REGLA CRÍTICA: Sanitizar el appId para evitar errores de segmentos en Firestore
+// REGLA CRÍTICA: Sanitizar el appId para que Firestore no de error de "odd segments"
+// Esto quita las "/" del nombre interno que usa StackBlitz
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -109,7 +114,7 @@ const BODY_ZONES: Record<string, string[]> = {
   "Antebrazos": ["Curl de Muñeca", "Curl Inverso", "Paseo del Granjero"],
   "Abdomen": ["Crunch", "Plancha", "Elevación de Piernas", "Rueda Abdominal"],
   "Full Body": ["Burpees", "Thrusters", "Clean & Press", "Zancadas", "Salto al Cajón"],
-  "Cardio": ["Cinta de Correr", "Bicicleta", "Elíptica", "Remo", "Cuerda", "Natación"]
+  "Cardio": ["Cinta de Correr", "Bicicleta Estática", "Elíptica", "Remo", "Cuerda", "Natación"]
 };
 
 const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
@@ -181,9 +186,9 @@ const InputBlock = ({
       <button 
         type="button"
         onClick={() => onAdjust(-1)} 
-        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Minus size={24}/>
+        <Minus size={28}/>
       </button>
       <div className="flex items-baseline justify-center gap-1">
         <span className="text-white font-black text-5xl">{value}</span>
@@ -192,9 +197,9 @@ const InputBlock = ({
       <button 
         type="button"
         onClick={() => onAdjust(1)} 
-        className="w-14 h-14 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
+        className="w-16 h-16 flex items-center justify-center bg-slate-800 rounded-full text-white active:bg-orange-600 active:scale-90 transition-all shadow-md"
       >
-        <Plus size={24}/>
+        <Plus size={28}/>
       </button>
     </div>
   </div>
@@ -219,8 +224,8 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
       
       <div className="grid grid-cols-1 w-full gap-5">
         {[
-          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Perfil Corporal' },
-          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesiones' },
+          { id: 'profile', label: 'Biometría', icon: User, color: 'from-orange-500 to-orange-600', desc: 'Composición Corporal' },
+          { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'from-orange-600 to-red-700', desc: 'Registro de Sesión' },
           { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'from-slate-700 to-slate-900', desc: 'Personal Records' },
           { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'from-orange-400 to-orange-600', desc: 'Carga Progresiva' },
           { id: 'history', label: 'Historial', icon: History, color: 'from-slate-800 to-black', desc: 'Galería Mensual' },
@@ -333,7 +338,8 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   const add = async () => {
     const finalName = form.name === 'Otro' ? form.customName : form.name;
-    if (!finalName || !sel || !user) return;
+    // REGLA: Verificamos que tengamos los datos mínimos antes de intentar guardar
+    if (!finalName || !form.zone || !sel || !user) return;
     
     setIsSaving(true);
     const isCardio = form.zone === 'Cardio';
@@ -349,12 +355,16 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     };
 
     try {
+      // Obtenemos los ejercicios actuales del día seleccionado
       const currentDayExs = workouts[sel] || [];
+      // Generamos la referencia exacta al documento del día
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel);
+      // Guardamos la lista actualizada
       await setDoc(docRef, { exercises: [...currentDayExs, item] });
+      // Limpiamos los campos numéricos para la siguiente entrada
       setForm(prev => ({ ...prev, sets: '0', reps: '0', weight: '0', minutes: '0', customName: '' }));
     } catch (e) {
-      console.error("Error al guardar serie:", e);
+      console.error("Error al guardar ejercicio:", e);
     } finally {
       setIsSaving(false);
     }
@@ -370,7 +380,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   return (
     <ViewContainer>
-      <Header title="Entrenamiento" subtitle="Physical Progress" onBack={onBack} />
+      <Header title="Entrenamiento" subtitle="Registro de Progreso" onBack={onBack} />
       <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
           <button className="p-5 bg-slate-800 rounded-2xl text-orange-500 active:scale-90" onClick={() => setDate(new Date(y, m - 1, 1))}><ChevronLeft size={28}/></button>
@@ -396,7 +406,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
             const active = (workouts[k] as Exercise[])?.length > 0;
             const isToday = new Date().toDateString() === new Date(y, m, dayNum).toDateString();
             return (
-              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:text-slate-400'}`}>{dayNum}</button>
+              <button key={dayNum} onClick={() => { setSel(k); setOpen(true); }} className={`aspect-square rounded-[1.25rem] text-base font-black transition-all border-2 flex items-center justify-center ${active ? 'bg-orange-600 border-orange-400 text-white shadow-md scale-105 z-10' : isToday ? 'border-orange-500 text-orange-500 bg-slate-900' : 'bg-slate-900/40 border-white/5 text-slate-700 hover:border-slate-500'}`}>{dayNum}</button>
             );
           })}
         </div>
@@ -457,11 +467,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
                 </div>
                 
                 <button 
-                  onClick={add} 
+                  onClick={(e) => { e.preventDefault(); add(); }} 
                   disabled={isSaving}
                   className="w-full bg-orange-600 py-7 rounded-[2.5rem] font-black text-white shadow-xl uppercase tracking-[0.2em] text-base italic active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isSaving ? 'PROCESANDO...' : (form.zone === 'Cardio' ? 'REGISTRAR CARDIO' : 'AÑADIR SERIE')}
+                  {isSaving ? 'PROCESANDO...' : 'AGREGAR'}
                 </button>
               </div>
             </div>
@@ -620,13 +630,14 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
+  // Pantalla de error si faltan las llaves (usa AlertTriangle para el build de Vercel)
   if (firebaseConfig.apiKey === "TU_API_KEY") {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
         <AlertTriangle size={80} className="text-orange-500 mb-8 animate-bounce" />
-        <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Sin Llaves</h1>
+        <h1 className="text-3xl font-black mb-4 italic tracking-tighter uppercase">Configuración Requerida</h1>
         <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed text-center">
-          Ernesto, pega tus llaves de Firebase en el código para activar Physical Tracker 100.
+          Ernesto, por favor pega tus llaves de Firebase en el archivo App.tsx para activar el sistema.
         </p>
       </div>
     );
