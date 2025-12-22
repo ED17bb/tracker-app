@@ -37,18 +37,36 @@ import {
   type DocumentData
 } from "firebase/firestore";
 
-// --- ENVIRONMENT GLOBALS ---
-// These are provided by the environment, but we declare them for TypeScript
-declare const __firebase_config: string;
-declare const __app_id: string;
+// --- CONFIGURACIÓN DE FIREBASE ---
+// Ernesto: AQUÍ es donde debes pegar tus llaves nuevamente.
+const firebaseConfig = {
+  apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
+  authDomain: "physical-tracker-100.firebaseapp.com",
+  projectId: "physical-tracker-100",
+  storageBucket: "physical-tracker-100.firebasestorage.app",
+  messagingSenderId: "139291216970",
+  appId: "1:139291216970:web:0a17a7caeaa4578be4aab3"
+};
+
+
+// --- GLOBALES DE ENTORNO ---
+// Declaramos estas variables para que Vercel no dé error de "no definido"
+declare const __firebase_config: string | undefined;
+declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
+// Lógica inteligente: Si no has pegado tus llaves arriba, intenta usar las del sistema
+const finalConfig = firebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined'
+  ? JSON.parse(__firebase_config)
+  : firebaseConfig;
+
+const isConfigValid = finalConfig.apiKey !== "TU_API_KEY";
+
+const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Rule 1: Sanitize appId to avoid segment errors in Firestore
+// Sanitizar el appId para evitar errores de segmentos en Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -76,13 +94,12 @@ interface ProfileData {
   calculatedFat?: string | null;
 }
 
-// --- STYLES ---
 const cleanTitleStyle: React.CSSProperties = {
   color: 'white',
   fontWeight: 900,
 };
 
-// --- UTILITIES ---
+// --- UTILIDADES ---
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -126,7 +143,7 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
-// --- REUSABLE UI COMPONENTS ---
+// --- COMPONENTES UI ---
 
 const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }> = ({ title, subtitle, onBack }) => (
   <header className="bg-slate-900/95 backdrop-blur-md border-b border-white/5 p-6 sticky top-0 z-40 w-full shadow-lg">
@@ -185,7 +202,7 @@ const InputBlock = ({
   </div>
 );
 
-// --- VIEWS ---
+// --- VISTAS ---
 
 const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => (
   <ViewContainer>
