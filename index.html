@@ -1,16 +1,46 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!-- Vincula tu icono personalizado -->
     <link rel="icon" type="image/png" href="/icon.png" />
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- Etiquetas para que iOS (iPhone) lo vea como App -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GymPro">
     <link rel="apple-touch-icon" href="/icon.png">
+    
+    <!-- Vincula el archivo de identidad de la App -->
     <link rel="manifest" href="/manifest.json">
+    
     <title>Gym Pro</title>
+    
+    <script>
+      // Este script "despierta" el modo instalación en el celular
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          // Validamos el protocolo para evitar errores en entornos de desarrollo (como blob: en StackBlitz)
+          // Los Service Workers requieren HTTPS o localhost
+          const isValidProtocol = window.location.protocol === 'https:' || 
+                                 window.location.hostname === 'localhost' || 
+                                 window.location.hostname === '127.0.0.1';
+          
+          if (isValidProtocol) {
+            navigator.serviceWorker.register('/sw.js')
+              .then(reg => console.log('Motor de instalación listo'))
+              .catch(err => console.error('Error en el motor', err));
+          } else {
+            console.log('Registro de Service Worker omitido en este entorno (protocolo no soportado).');
+          }
+        });
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-slate-900">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
