@@ -55,7 +55,6 @@ const firebaseConfig = {
 };
 
 
-
 // Lógica de configuración unificada
 const getFinalConfig = () => {
   if (firebaseConfig.apiKey !== "TU_API_KEY") return firebaseConfig;
