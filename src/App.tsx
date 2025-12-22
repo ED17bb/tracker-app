@@ -33,21 +33,22 @@ import {
   doc, 
   setDoc, 
   getDoc,
-  onSnapshot
+  onSnapshot,
+  type DocumentData
 } from "firebase/firestore";
 
-// --- DECLARACIONES PARA TYPESCRIPT (Evita errores de Vercel) ---
+// --- ENVIRONMENT GLOBALS ---
+// These are provided by the environment, but we declare them for TypeScript
 declare const __firebase_config: string;
 declare const __app_id: string;
 declare const __initial_auth_token: string | undefined;
 
-// --- CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE ---
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Sanitizar el appId para evitar errores de segmentos en Firestore
+// Rule 1: Sanitize appId to avoid segment errors in Firestore
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -75,18 +76,13 @@ interface ProfileData {
   calculatedFat?: string | null;
 }
 
-// --- ESTILOS ---
+// --- STYLES ---
 const cleanTitleStyle: React.CSSProperties = {
   color: 'white',
   fontWeight: 900,
 };
 
-const titleOutlineStyle: React.CSSProperties = {
-  color: 'white',
-  fontWeight: 900,
-};
-
-// --- UTILIDADES ---
+// --- UTILITIES ---
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -130,7 +126,7 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
-// --- COMPONENTES UI ---
+// --- REUSABLE UI COMPONENTS ---
 
 const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }> = ({ title, subtitle, onBack }) => (
   <header className="bg-slate-900/95 backdrop-blur-md border-b border-white/5 p-6 sticky top-0 z-40 w-full shadow-lg">
@@ -189,14 +185,14 @@ const InputBlock = ({
   </div>
 );
 
-// --- VISTAS ---
+// --- VIEWS ---
 
 const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate }) => (
   <ViewContainer>
     <div className="flex-1 flex flex-col p-6 space-y-12 justify-center items-center w-full">
       <div className="text-center w-full">
         <div className="relative inline-block mb-8">
-          <div className="absolute inset-0 bg-orange-500 blur-3xl opacity-10 rounded-full animate-pulse"></div>
+          <div className="absolute inset-0 bg-sky-500 blur-3xl opacity-10 rounded-full animate-pulse"></div>
           <div className="relative bg-slate-900 p-1 rounded-3xl border border-white/10 shadow-2xl overflow-hidden w-20 h-20 flex items-center justify-center">
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
@@ -353,7 +349,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
 
   const adjustValue = (field: 'sets' | 'reps' | 'weight' | 'minutes', amt: number) => {
     setForm(prev => {
-      const val = parseFloat(prev[field]) || 0;
+      const val = parseFloat(prev[field as keyof typeof prev]) || 0;
       const newVal = Math.max(0, val + amt);
       return { ...prev, [field]: (Math.round(newVal * 10) / 10).toString() };
     });
@@ -370,11 +366,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
         </div>
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic" style={titleOutlineStyle}>{String(trainedDaysCount)}</div>
+              <div className="text-5xl font-black text-white italic">{String(trainedDaysCount)}</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Días</p>
            </div>
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
-              <div className="text-5xl font-black text-white italic" style={titleOutlineStyle}>{String(progressPct)}%</div>
+              <div className="text-5xl font-black text-white italic">{String(progressPct)}%</div>
               <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">Mes</p>
            </div>
         </div>
@@ -416,7 +412,11 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
               </div>
               
               <div className="space-y-4 bg-slate-950/80 p-6 rounded-[3rem] border border-white/5 shadow-2xl mb-4 overflow-y-auto">
-                {lastWeightVal && <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2"><Info size={14}/> Récord: {String(lastWeightVal)}kg</div>}
+                {lastWeightVal && (
+                  <div className="text-[10px] font-black text-orange-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 px-2">
+                    <Info size={14}/> Récord: {String(lastWeightVal)}kg
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
@@ -603,11 +603,11 @@ export default function App() {
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
-    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
-    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
-    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
+    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
+    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
+    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
     charts: <ChartsView workouts={workouts} onBack={() => setView('home')} />,
-    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center">Iniciando sesión...</div>,
+    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
   };
 
   return (
