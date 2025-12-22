@@ -3,50 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#020617">
     
-    <!-- Ícono para el navegador y Apple -->
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="apple-touch-icon" href="/icon.png">
+    <link rel="manifest" href="/manifest.json">
     
-    <!-- El archivo de identidad -->
-    <link rel="manifest" href="manifest.json">
-    
-    <title>Gym Pro</title>
+    <title>Physical Tracker 100</title>
 
-    <!-- Configuraciones de pantalla completa -->
+    <!-- MOTOR DE ESTILOS (Tailwind) - Asegura que el diseño sea idéntico en todos los entornos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="GymPro">
 
     <script>
-      // Registro del Service Worker (Motor de la App)
+      // Lógica de registro segura para evitar errores en entornos de vista previa (blob:)
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Verificamos que el entorno sea seguro (HTTPS o Localhost)
-          // Esto evita el error de protocolo ':' no soportado en StackBlitz
-          const isSecureContext = window.location.protocol === 'https:' || 
-                                 window.location.hostname === 'localhost' || 
-                                 window.location.hostname === '127.0.0.1';
-
-          if (isSecureContext) {
+          // Solo intentamos el registro si estamos en un protocolo estándar (http/https)
+          const isStandardProtocol = window.location.protocol.startsWith('http');
+          
+          if (isStandardProtocol) {
             navigator.serviceWorker.register('/sw.js', { scope: '/' })
               .then((reg) => {
-                console.log('✅ GymPro: Motor de instalación activo', reg.scope);
+                console.log('✅ Sistema Activo');
               })
               .catch((err) => {
-                console.error('❌ GymPro: Fallo en el motor', err);
+                // Silenciamos errores técnicos en entornos de desarrollo que no afectan la funcionalidad
+                if (!window.location.hostname.includes('localhost')) {
+                  console.error('❌ Error SW:', err);
+                }
               });
           } else {
-            console.log('ℹ️ GymPro: Registro de motor omitido en este entorno de desarrollo.');
+            console.log('ℹ️ Registro de SW omitido: Protocolo no compatible (' + window.location.protocol + ')');
           }
         });
       }
     </script>
   </head>
-  <body class="bg-slate-900">
+  <body class="bg-slate-950 overflow-x-hidden">
     <div id="root"></div>
+    <!-- Punto de entrada de la aplicación React -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

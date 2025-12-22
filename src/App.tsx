@@ -38,7 +38,7 @@ import {
 } from "firebase/firestore";
 
 // --- CONFIGURACIÓN DE FIREBASE ---
-// Ernesto: AQUÍ es donde debes pegar tus llaves de la consola de Firebase.
+// Ernesto: Pega tus llaves aquí si vas a usar tu propia consola de Firebase.
 const firebaseConfig = {
   apiKey: "AIzaSyBkRJP-gMGlQOeq-5DOZcYvE0vOCMaJH48",
   authDomain: "physical-tracker-100.firebaseapp.com",
@@ -49,13 +49,13 @@ const firebaseConfig = {
 };
 
 
-// --- GLOBALES DE ENTORNO ---
+// --- DECLARACIONES DE ENTORNO ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
-// Lógica para usar llaves manuales o del sistema
-const finalConfig = firebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined'
+// Lógica de configuración dinámica
+const finalConfig = (firebaseConfig.apiKey === "TU_API_KEY" && typeof __firebase_config !== 'undefined')
   ? JSON.parse(__firebase_config)
   : firebaseConfig;
 
@@ -63,7 +63,7 @@ const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Sanitizar el appId para evitar errores en las rutas de Firebase
+// REGLA DE ORO: Sanitizar el appId para evitar errores de Firebase
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'physical-tracker-100';
 const appId = rawAppId.replace(/\//g, '_');
 
@@ -90,12 +90,6 @@ interface ProfileData {
   thigh: string;
   calculatedFat?: string | null;
 }
-
-// --- ESTILOS ---
-const cleanTitleStyle: React.CSSProperties = {
-  color: 'white',
-  fontWeight: 900,
-};
 
 // --- UTILIDADES ---
 const months = [
@@ -152,7 +146,7 @@ const Header: React.FC<{ title: string; subtitle?: string; onBack?: () => void }
         </button>
       )}
       <div className="flex-1 overflow-hidden text-center">
-        <h1 className="text-2xl font-black uppercase italic" style={cleanTitleStyle}>{title}</h1>
+        <h1 className="text-2xl font-black uppercase italic text-white">{title}</h1>
         {subtitle && <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">{subtitle}</p>}
       </div>
       {onBack && <div className="w-10" />}
@@ -212,7 +206,7 @@ const HomeView: React.FC<{ onNavigate: (v: string) => void }> = ({ onNavigate })
              <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=PT100'; }} />
           </div>
         </div>
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-center text-white" style={cleanTitleStyle}>
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-center text-white">
           Physical Tracker 100
         </h1>
       </div>
@@ -362,7 +356,7 @@ const WorkoutView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
     }
   };
 
-  const adjustValue = (field: 'sets' | 'reps' | 'weight' | 'minutes', amt: number) => {
+  const adjustValue = (field: string, amt: number) => {
     setForm(prev => {
       const val = parseFloat(prev[field as keyof typeof prev]) || 0;
       const newVal = Math.max(0, val + amt);
@@ -521,7 +515,7 @@ const ChartsView: React.FC<{ workouts: Record<string, Exercise[]>; onBack: () =>
       <Header title="Análisis" subtitle="Rendimiento" onBack={onBack} />
       <main className="p-6 w-full flex-1 flex flex-col items-stretch">
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full bg-slate-900 p-7 rounded-[2.5rem] mb-10 font-black text-white border border-white/5 appearance-none shadow-2xl tracking-widest text-sm italic"><option value="">SELECCIONA EJERCICIO...</option>{list.map(ex => <option key={ex} value={ex}>{ex}</option>)}</select>
-        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-950 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
+        {data.length > 1 ? <div className="bg-slate-800/30 p-12 rounded-[4rem] flex-1 min-h-[400px] flex items-end justify-between gap-4 border border-white/5 shadow-inner overflow-x-auto">{data.map((d, i) => (<div key={i} className="bg-orange-500 min-w-[20px] w-full rounded-t-full relative group transition-all" style={{ height: `${(d.weight / Math.max(...data.map(x=>x.weight))) * 100}%` }}><div className="absolute -top-14 left-1/2 -translate-x-1/2 text-xs bg-slate-900 p-3 rounded-2xl font-black border border-white/10 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap shadow-2xl text-white">{String(d.weight)}kg</div></div>))}</div> : <div className="text-center flex-1 flex flex-col items-center justify-center opacity-10 font-black text-white w-full"><TrendingUp size={120} className="mb-8"/><p className="uppercase tracking-[0.5em] text-[12px]">Sin datos suficientes</p></div>}
       </main>
     </ViewContainer>
   );
@@ -565,7 +559,7 @@ const HistoryView: React.FC<{ user: FirebaseUser; workouts: Record<string, Exerc
       <main className="p-6 space-y-6 w-full flex-1 overflow-y-auto pb-10">
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={onUpload} />
         {historyData.map(item => (
-          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-700 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
+          <div key={item.key} className="bg-slate-800/80 p-8 rounded-[3.5rem] border border-white/5 flex justify-between items-center shadow-xl w-full"><div><h3 className="font-black text-white text-3xl uppercase italic leading-none">{item.month}</h3><p className="text-slate-500 font-black text-sm mt-1">{String(item.year)}</p><div className="flex items-center gap-3 mt-4"><div className="text-orange-500 font-black text-4xl leading-none">{String(item.pct)}%</div><div className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-tight">Meta<br/>Cumplida</div></div></div><div className="flex flex-col items-end">{photos[item.key] ? <img src={photos[item.key].image} onClick={() => setZoom(photos[item.key].image)} className="w-32 h-32 object-cover rounded-[2.5rem] border-4 border-slate-700 shadow-2xl active:scale-95 transition-all cursor-pointer" alt="Progress" /> : <button onClick={() => { selRef.current = item.key; fileRef.current?.click(); }} className="w-32 h-32 bg-slate-700/30 rounded-[2.5rem] border-4 border-dashed border-slate-600 flex flex-center items-center justify-center text-slate-600 hover:text-orange-500 active:scale-95 transition-all">{up === item.key ? <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent animate-spin rounded-full"/> : <><Camera size={44}/><span className="text-[8px] font-black uppercase mt-2">Añadir Foto</span></>}</button>}</div></div>
         ))}
       </main>
       {zoom && (
@@ -591,9 +585,7 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (e) {
-        console.error("Auth error:", e);
-      }
+      } catch (e) { console.error("Auth error:", e); }
     };
     initAuth();
     const unsub = onAuthStateChanged(auth, u => {
@@ -614,15 +606,15 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Physical Tracker 100</span></div>;
+  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-8"><div className="relative"><div className="bg-slate-900 p-1 rounded-3xl border border-white/10 mb-2 w-20 h-20 overflow-hidden flex items-center justify-center shadow-xl shadow-orange-500/10"><img src="/icon.png" alt="Logo" className="w-full h-full object-cover animate-pulse" /></div></div><span className="tracking-[0.8em] uppercase text-[10px] font-black opacity-40">Iniciando Physical Tracker...</span></div>;
 
   const views: Record<string, React.ReactElement> = {
     home: <HomeView onNavigate={setView} />,
-    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
-    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
-    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
+    profile: user ? <ProfileView user={user} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black text-center text-xs">Cargando...</div>,
+    workout: user ? <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black text-center text-xs">Cargando...</div>,
+    failure: user ? <FailureView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black text-center text-xs">Cargando...</div>,
     charts: <ChartsView workouts={workouts} onBack={() => setView('home')} />,
-    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black uppercase text-center text-xs">Iniciando sesión...</div>,
+    history: user ? <HistoryView user={user} workouts={workouts} onBack={() => setView('home')} /> : <div className="p-10 text-white font-black text-center text-xs">Cargando...</div>,
   };
 
   return (
