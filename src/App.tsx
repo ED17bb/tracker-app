@@ -4,17 +4,19 @@ import {
   ChevronRight, 
   Trash2, 
   Dumbbell, 
-  X,
-  TrendingUp,
-  User,
-  Activity,
+  X, 
+  TrendingUp, 
+  User, 
+  Activity, 
   Skull, 
-  ArrowLeft,
-  History,
-  LogIn,
-  LogOut,
-  Minus,
-  Plus
+  ArrowLeft, 
+  History, 
+  LogIn, 
+  LogOut, 
+  Minus, 
+  Plus,
+  Camera,
+  Info
 } from 'lucide-react';
 
 // Firebase Imports
@@ -23,17 +25,17 @@ import {
   getAuth, 
   onAuthStateChanged, 
   GoogleAuthProvider, 
-  signInWithPopup,
+  signInWithPopup, 
   signOut,
-  type User as FirebaseUser
+  type User as FirebaseUser 
 } from "firebase/auth";
 import { 
   getFirestore, 
   collection, 
   doc, 
   setDoc, 
-  getDoc,
-  onSnapshot
+  getDoc, 
+  onSnapshot 
 } from "firebase/firestore";
 
 // --- CONFIGURACIÓN DE TU FIREBASE ---
@@ -48,7 +50,7 @@ const firebaseConfig = {
 };
 
 
-// --- DECLARACIONES GLOBALES ---
+// --- DECLARACIONES GLOBALES Y VALIDACIÓN ---
 declare const __firebase_config: string | undefined;
 declare const __app_id: string | undefined;
 
@@ -155,12 +157,12 @@ const InputBlock = ({ label, value, unit, onAdjust }: { label: string, value: st
 // --- VISTAS ---
 
 const LoginView = ({ onLogin }: { onLogin: () => void }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 min-h-screen w-full">
+  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 min-h-screen w-full text-white">
     <div className="bg-blue-600 p-10 rounded-[4rem] mb-10 shadow-[0_20px_60px_rgba(37,99,235,0.3)]">
       <Dumbbell size={80} className="text-white" />
     </div>
-    <h1 className="text-5xl font-black text-white italic tracking-tighter uppercase text-center leading-none mb-4">GymPro 100</h1>
-    <p className="text-slate-500 text-center max-w-xs font-bold text-sm mb-12 leading-relaxed text-white/50">
+    <h1 className="text-5xl font-black italic tracking-tighter uppercase text-center leading-none mb-4">GymPro 100</h1>
+    <p className="text-slate-500 text-center max-w-xs font-bold text-sm mb-12 leading-relaxed opacity-70">
       Tu progreso es eterno. Entra con Google para que tus datos nunca desaparezcan.
     </p>
     <button 
@@ -194,6 +196,7 @@ const HomeView = ({ user, onNavigate, onLogout }: { user: FirebaseUser, onNaviga
             <span className="block font-black text-slate-100 text-2xl tracking-tight italic uppercase">{item.label}</span>
             <span className="text-[11px] text-slate-500 uppercase font-black tracking-widest mt-1 opacity-80">{item.desc}</span>
           </div>
+          <ChevronRight className="text-slate-700" size={20} />
         </button>
       ))}
     </div>
@@ -304,9 +307,9 @@ const WorkoutView = ({ user, workouts, onBack }: { user: FirebaseUser, workouts:
     <div className="flex-1 flex flex-col bg-slate-950 min-h-screen w-full">
       <Header title="Entrenamiento" subtitle="Registro de Progreso" onBack={onBack} />
       <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
-        <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
+        <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl text-white">
           <button type="button" onClick={() => setDate(new Date(y, m - 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronLeft size={28}/></button>
-          <span className="font-black text-white uppercase tracking-widest italic">{months[m]} {y}</span>
+          <span className="font-black uppercase tracking-widest italic">{months[m]} {y}</span>
           <button type="button" onClick={() => setDate(new Date(y, m + 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronRight size={28}/></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -359,7 +362,7 @@ const WorkoutView = ({ user, workouts, onBack }: { user: FirebaseUser, workouts:
                   <select value={form.zone} onChange={e => setForm({...form, zone: e.target.value, name: ''})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md outline-none"><option value="">ZONA...</option>{Object.keys(BODY_ZONES).map(z => <option key={z} value={z}>{z}</option>)}</select>
                   <select value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-xs text-white font-black border border-white/5 appearance-none shadow-md outline-none"><option value="">EJERCICIO...</option>{form.zone && BODY_ZONES[form.zone].map(e => <option key={e} value={e}>{e}</option>)}<option value="Otro">Otro...</option></select>
                 </div>
-                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-blue-500/30 outline-none" />}
+                {form.name === 'Otro' && <input type="text" placeholder="¿Qué ejercicio?" value={form.customName} onChange={e=>setForm({...form, customName: e.target.value})} className="bg-slate-900 p-5 rounded-2xl text-center font-black text-white text-lg w-full border border-blue-500/30 outline-none text-white" />}
                 <div className="flex flex-col gap-4">
                   <InputBlock label="SERIES LOGRADAS" value={form.sets} unit="S" onAdjust={(amt) => adjustValue('sets', amt)} />
                   <InputBlock label="REPETICIONES" value={form.reps} unit="R" onAdjust={(amt) => adjustValue('reps', amt)} />
@@ -384,12 +387,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!document.getElementById('tailwind-cdn')) {
-      const script = document.createElement('script');
-      script.id = 'tailwind-cdn';
-      script.src = 'https://cdn.tailwindcss.com';
-      document.head.appendChild(script);
-    }
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
     return () => unsub();
   }, []);
@@ -410,9 +407,26 @@ export default function App() {
   const handleLogin = async () => { if (auth && provider) await signInWithPopup(auth, provider).catch(console.error); };
   const handleLogout = () => auth && signOut(auth);
 
-  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><Dumbbell size={80} className="text-amber-500 mb-10 animate-bounce" /><h1 className="text-3xl font-black mb-6 uppercase italic">Error de Enlace</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Ernesto, pega tus credenciales de Firebase en el código para activar la seguridad permanente.</p></div>;
+  if (!isConfigValid) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white">
+        <Activity size={80} className="text-amber-500 mb-10 animate-bounce" />
+        <h1 className="text-3xl font-black mb-6 uppercase italic">Configuración Requerida</h1>
+        <p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">
+          Ernesto, por favor pega tus llaves de Firebase en el archivo App.jsx para activar el sistema de seguridad permanente.
+        </p>
+      </div>
+    );
+  }
 
-  if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-6"><Dumbbell size={100} className="text-blue-500 animate-spin" /><span className="tracking-[0.6em] uppercase text-[12px] font-black opacity-50">Validando sesión...</span></div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-6">
+        <Dumbbell size={100} className="text-blue-500 animate-spin" />
+        <span className="tracking-[0.6em] uppercase text-[12px] font-black opacity-50">Validando sesión...</span>
+      </div>
+    );
+  }
 
   if (!user) return <LoginView onLogin={handleLogin} />;
 
@@ -420,6 +434,27 @@ export default function App() {
     switch(view) {
       case 'profile': return <ProfileView user={user} onBack={() => setView('home')} />;
       case 'workout': return <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} />;
+      case 'failure': return (
+        <div className="p-10 text-white text-center font-black">
+          <Header title="Récords" onBack={() => setView('home')} />
+          <Info size={40} className="mx-auto mb-4 text-blue-500" />
+          PRÓXIMAMENTE
+        </div>
+      );
+      case 'charts': return (
+        <div className="p-10 text-white text-center font-black">
+          <Header title="Análisis" onBack={() => setView('home')} />
+          <TrendingUp size={40} className="mx-auto mb-4 text-emerald-500" />
+          PRÓXIMAMENTE
+        </div>
+      );
+      case 'history': return (
+        <div className="p-10 text-white text-center font-black">
+          <Header title="Galería" onBack={() => setView('home')} />
+          <Camera size={40} className="mx-auto mb-4 text-amber-500" />
+          PRÓXIMAMENTE
+        </div>
+      );
       default: return <HomeView user={user} onNavigate={setView} onLogout={handleLogout} />;
     }
   };
