@@ -86,11 +86,12 @@ interface ProfileData {
   height: string;
   weight: string;
   neck: string;
-  waist: string;
+  waist: string; // Cintura
   hip: string;
   chest: string;
   arms: string;
   thigh: string;
+  ombligo?: string; // Nuevo para mujeres
   calculatedFat?: string | null;
   timestamp?: number;
 }
@@ -115,20 +116,20 @@ const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
 const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
 const formatDateKey = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-// --- COMPONENTES ATÓMICOS (Fuera para evitar pérdida de foco) ---
+// --- COMPONENTES ATÓMICOS ---
 
 const Field = ({ label, value, field, unit, onChange }: { label: string, value: string, field: keyof ProfileData, unit: string, onChange: (f: keyof ProfileData, v: string) => void }) => (
-  <div className="bg-slate-800/80 p-6 rounded-3xl border border-slate-700 shadow-sm transition-all focus-within:border-blue-500/50">
-    <label className="text-[10px] text-slate-500 uppercase font-black mb-2 block tracking-[0.15em]">{label}</label>
-    <div className="flex items-baseline gap-2">
+  <div className="bg-slate-800/80 p-5 rounded-[2rem] border border-slate-700 shadow-sm transition-all focus-within:border-blue-500/50 flex flex-col justify-center min-h-[110px]">
+    <label className="text-[9px] text-slate-500 uppercase font-black mb-1 block tracking-[0.15em] truncate">{label}</label>
+    <div className="flex items-baseline gap-1">
       <input 
         type="number" 
         value={value} 
         onChange={e => onChange(field, e.target.value)} 
-        className="bg-transparent text-white font-black text-4xl w-full outline-none" 
+        className="bg-transparent text-white font-black text-3xl w-full outline-none" 
         placeholder="0" 
       />
-      <span className="text-xs text-blue-500 font-black uppercase">{unit}</span>
+      <span className="text-[10px] text-blue-500 font-black uppercase">{unit}</span>
     </div>
   </div>
 );
@@ -174,12 +175,12 @@ const InputBlock = ({ label, value, unit, onAdjust }: { label: string, value: st
 // --- VISTAS ---
 
 const LoginView = ({ onLogin }: { onLogin: () => void }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 min-h-screen w-full text-white">
+  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 min-h-screen w-full text-white text-center">
     <div className="bg-blue-600 p-10 rounded-[4rem] mb-10 shadow-[0_20px_60px_rgba(37,99,235,0.3)]">
       <Dumbbell size={80} className="text-white" />
     </div>
-    <h1 className="text-5xl font-black italic tracking-tighter uppercase text-center leading-none mb-4">GymPro 100</h1>
-    <p className="text-slate-500 text-center max-w-xs font-bold text-sm mb-12 leading-relaxed opacity-70">
+    <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none mb-4">GymPro 100</h1>
+    <p className="text-slate-500 max-w-xs font-bold text-sm mb-12 leading-relaxed opacity-70">
       Tus datos ahora estarán protegidos para siempre con tu cuenta de Google.
     </p>
     <button 
@@ -197,7 +198,7 @@ const HomeView = ({ user, onNavigate, onLogout }: { user: FirebaseUser, onNaviga
     <Header title="GymPro" subtitle={`Hola, ${user.displayName?.split(' ')[0]}`} onLogout={onLogout} />
     <div className="grid grid-cols-1 w-full gap-5">
       {[
-        { id: 'profile', label: 'Biometría', icon: User, color: 'bg-indigo-600', desc: 'Grasa y Medidas' },
+        { id: 'profile', label: 'Biometría', icon: User, color: 'bg-indigo-600', desc: 'Composición Corporal' },
         { id: 'workout', label: 'Entrenamiento', icon: Dumbbell, color: 'bg-blue-600', desc: 'Series y Repeticiones' },
         { id: 'failure', label: 'Modo Fallo', icon: Skull, color: 'bg-rose-600', desc: 'Records Personales' },
         { id: 'charts', label: 'Análisis', icon: TrendingUp, color: 'bg-emerald-600', desc: 'Gráficas de Peso' },
@@ -220,27 +221,22 @@ const HomeView = ({ user, onNavigate, onLogout }: { user: FirebaseUser, onNaviga
 );
 
 const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void }) => {
-  const [p, setP] = useState<ProfileData>({ gender: 'male', height: '', weight: '', neck: '', waist: '', hip: '', chest: '', arms: '', thigh: '' });
+  const [p, setP] = useState<ProfileData>({ gender: 'male', height: '', weight: '', neck: '', waist: '', hip: '', chest: '', arms: '', thigh: '', ombligo: '' });
   const [history, setHistory] = useState<ProfileData[]>([]);
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    
-    // Cargar perfil actual
     getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data')).then(s => {
       if (s.exists()) setP(s.data() as ProfileData);
     });
-
-    // Cargar historial
     const qHistory = collection(db, 'artifacts', appId, 'users', user.uid, 'biometry_history');
     const unsub = onSnapshot(qHistory, (s) => {
       const docs = s.docs.map(d => ({ ...d.data(), id: d.id } as ProfileData & { id: string }));
       docs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       setHistory(docs);
     });
-
     return () => unsub();
   }, [user]);
 
@@ -260,20 +256,14 @@ const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void 
     if (!user) return;
     setSaving(true);
     const now = Date.now();
-    
-    // GUARDADO ESPECIAL: Quitamos la altura del historial tal como pidió Ernesto
     const { height, ...historyData } = p;
     const finalHistoryData = { ...historyData, calculatedFat: fat, timestamp: now };
     const finalProfileData = { ...p, calculatedFat: fat, timestamp: now };
-    
     try {
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), finalProfileData);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'biometry_history', now.toString()), finalHistoryData);
       setSaving(false);
-    } catch (e) {
-      console.error(e);
-      setSaving(false);
-    }
+    } catch (e) { console.error(e); setSaving(false); }
   };
 
   const deleteHistoryItem = async (id: string) => {
@@ -297,22 +287,23 @@ const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void 
           <div className="text-7xl font-black text-white relative z-10 tracking-tighter italic">{fat || '--'}<span className="text-2xl ml-1 opacity-60">%</span></div>
         </div>
 
+        {/* FILAS DE DOS CUADROS POR LÍNEA */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Altura" value={String(p.height || '')} field="height" unit="cm" onChange={handleFieldChange} />
           <Field label="Peso" value={String(p.weight || '')} field="weight" unit="kg" onChange={handleFieldChange} />
-        </div>
-        
-        <div className="grid grid-cols-3 gap-3">
+          
           <Field label="Cuello" value={String(p.neck || '')} field="neck" unit="cm" onChange={handleFieldChange} />
-          <Field label="Abdomen" value={String(p.waist || '')} field="waist" unit="cm" onChange={handleFieldChange} />
-          {p.gender === 'female' && <Field label="Cadera" value={String(p.hip || '')} field="hip" unit="cm" onChange={handleFieldChange} />}
-        </div>
-        
-        <div className={`grid ${p.gender === 'male' ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
-          {p.gender === 'male' && <Field label="Pecho" value={String(p.chest || '')} field="chest" unit="cm" onChange={handleFieldChange} />}
+          <Field label="Cintura" value={String(p.waist || '')} field="waist" unit="cm" onChange={handleFieldChange} />
+          
+          <Field label="Cadera" value={String(p.hip || '')} field="hip" unit="cm" onChange={handleFieldChange} />
+          {p.gender === 'female' ? (
+            <Field label="Ombligo" value={String(p.ombligo || '')} field="ombligo" unit="cm" onChange={handleFieldChange} />
+          ) : (
+            <Field label="Pecho" value={String(p.chest || '')} field="chest" unit="cm" onChange={handleFieldChange} />
+          )}
+
           <Field label="Brazos" value={String(p.arms || '')} field="arms" unit="cm" onChange={handleFieldChange} />
           <Field label="Muslo" value={String(p.thigh || '')} field="thigh" unit="cm" onChange={handleFieldChange} />
-          {p.gender === 'male' && <Field label="Cadera" value={String(p.hip || '')} field="hip" unit="cm" onChange={handleFieldChange} />}
         </div>
 
         <div className="flex gap-3">
@@ -356,18 +347,18 @@ const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void 
                         {entry.weight}kg <span className="text-blue-500 ml-1">{entry.calculatedFat}%</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Abd</span><span className="text-slate-300 font-bold text-xs">{entry.waist}cm</span></div>
-                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Brazo</span><span className="text-slate-300 font-bold text-xs">{entry.arms}cm</span></div>
-                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Cuello</span><span className="text-slate-300 font-bold text-xs">{entry.neck}cm</span></div>
-                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Muslo</span><span className="text-slate-300 font-bold text-xs">{entry.thigh}cm</span></div>
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Cintura</span><span className="text-slate-300 font-bold text-[10px]">{entry.waist}cm</span></div>
+                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Brazo</span><span className="text-slate-300 font-bold text-[10px]">{entry.arms}cm</span></div>
+                      {entry.ombligo && <div><span className="text-[8px] text-slate-600 font-black uppercase block">Ombligo</span><span className="text-slate-300 font-bold text-[10px]">{entry.ombligo}cm</span></div>}
+                      <div><span className="text-[8px] text-slate-600 font-black uppercase block">Muslo</span><span className="text-slate-300 font-bold text-[10px]">{entry.thigh}cm</span></div>
                     </div>
                   </div>
                 </div>
               )) : (
-                <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                  <FileText size={80} className="text-white" />
-                  <p className="mt-4 font-black uppercase text-xs tracking-widest text-white">Sin registros aún</p>
+                <div className="flex flex-col items-center justify-center py-20 opacity-20 text-white">
+                  <FileText size={80} />
+                  <p className="mt-4 font-black uppercase text-xs tracking-widest">Sin registros aún</p>
                 </div>
               )}
             </div>
@@ -548,7 +539,7 @@ export default function App() {
         </div>
       );
       case 'history': return (
-        <div className="p-10 text-white text-center font-black">
+        <div className="p-10 text-white text-center font-black text-center">
           <Header title="Galería" onBack={() => setView('home')} />
           <Activity size={40} className="mx-auto mb-4 text-amber-500" />
           PRÓXIMAMENTE
