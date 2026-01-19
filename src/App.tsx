@@ -11,11 +11,10 @@ import {
   Skull, 
   ArrowLeft,
   History,
-  Camera,
-  AlertTriangle,
-  Info,
   LogIn,
-  LogOut
+  LogOut,
+  Minus,
+  Plus
 } from 'lucide-react';
 
 // Firebase Imports
@@ -26,7 +25,7 @@ import {
   GoogleAuthProvider, 
   signInWithPopup,
   signOut,
-  User as FirebaseUser
+  type User as FirebaseUser
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -34,8 +33,7 @@ import {
   doc, 
   setDoc, 
   getDoc,
-  onSnapshot,
-  DocumentData
+  onSnapshot
 } from "firebase/firestore";
 
 // --- CONFIGURACIÓN DE TU FIREBASE ---
@@ -61,6 +59,8 @@ const getFinalConfig = () => {
 };
 
 const finalConfig = getFinalConfig();
+const isConfigValid = finalConfig.apiKey !== "TU_API_KEY";
+
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -205,7 +205,11 @@ const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user) getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data')).then(s => s.exists() && setP(s.data() as ProfileData));
+    if (user) {
+      getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data')).then(s => {
+        if (s.exists()) setP(s.data() as ProfileData);
+      });
+    }
   }, [user]);
 
   const fat = useMemo(() => {
@@ -217,7 +221,11 @@ const ProfileView = ({ user, onBack }: { user: FirebaseUser, onBack: () => void 
   }, [p]);
 
   const save = async () => {
-    if (user) { setSaving(true); await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { ...p, calculatedFat: fat }); setSaving(false); }
+    if (user) { 
+      setSaving(true); 
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { ...p, calculatedFat: fat }); 
+      setSaving(false); 
+    }
   };
 
   const Field = ({ label, field, unit }: { label: string, field: keyof ProfileData, unit: string }) => (
@@ -297,9 +305,9 @@ const WorkoutView = ({ user, workouts, onBack }: { user: FirebaseUser, workouts:
       <Header title="Entrenamiento" subtitle="Registro de Progreso" onBack={onBack} />
       <main className="p-4 w-full flex-1 flex flex-col items-stretch space-y-6">
         <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-[2rem] border border-white/5 shadow-xl">
-          <button onClick={() => setDate(new Date(y, m - 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronLeft size={28}/></button>
+          <button type="button" onClick={() => setDate(new Date(y, m - 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronLeft size={28}/></button>
           <span className="font-black text-white uppercase tracking-widest italic">{months[m]} {y}</span>
-          <button onClick={() => setDate(new Date(y, m + 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronRight size={28}/></button>
+          <button type="button" onClick={() => setDate(new Date(y, m + 1, 1))} className="p-5 bg-slate-800 rounded-2xl text-blue-500"><ChevronRight size={28}/></button>
         </div>
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/5 text-center shadow-lg w-full">
@@ -328,7 +336,7 @@ const WorkoutView = ({ user, workouts, onBack }: { user: FirebaseUser, workouts:
             <div className="bg-slate-900 w-full rounded-t-[4rem] p-6 max-h-[98vh] flex flex-col border-t border-white/10 shadow-2xl animate-in slide-in-from-bottom duration-300">
               <div className="flex justify-between items-center mb-6 px-4">
                 <h2 className="font-black text-3xl uppercase tracking-tighter italic text-white leading-none">{sel}</h2>
-                <button onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white"><X size={28}/></button>
+                <button type="button" onClick={() => setOpen(false)} className="p-5 bg-slate-800 rounded-full text-white"><X size={28}/></button>
               </div>
               <div className="flex-1 overflow-y-auto mb-6 space-y-4 px-2">
                 {(workouts[sel] || []).length > 0 ? (workouts[sel] || []).map((ex) => (
@@ -337,7 +345,7 @@ const WorkoutView = ({ user, workouts, onBack }: { user: FirebaseUser, workouts:
                       <p className="font-black text-white uppercase text-xl italic tracking-tight">{ex.name}</p>
                       <p className="text-xs text-blue-400 font-bold mt-2 uppercase tracking-widest">{ex.sets}S x {ex.reps}R — <span className="text-white text-lg font-black">{ex.weight}kg</span></p>
                     </div>
-                    <button onClick={async () => {
+                    <button type="button" onClick={async () => {
                       const upd = workouts[sel].filter(e => e.id !== ex.id);
                       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'days', sel), { exercises: upd });
                     }} className="text-slate-600 p-4 bg-slate-700/30 rounded-2xl"><Trash2 size={24}/></button>
@@ -382,7 +390,6 @@ export default function App() {
       script.src = 'https://cdn.tailwindcss.com';
       document.head.appendChild(script);
     }
-    if (!isConfigValid || !auth) { setLoading(false); return; }
     const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
     return () => unsub();
   }, []);
@@ -391,7 +398,10 @@ export default function App() {
     if (!user || !db) return;
     const unsub = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'days'), s => {
       const d: Record<string, Exercise[]> = {};
-      s.forEach(docSnap => d[docSnap.id] = (docSnap.data().exercises || []) as Exercise[]);
+      s.forEach(docSnap => {
+        const data = docSnap.data();
+        d[docSnap.id] = (data.exercises || []) as Exercise[];
+      });
       setWorkouts(d);
     });
     return () => unsub();
@@ -400,22 +410,24 @@ export default function App() {
   const handleLogin = async () => { if (auth && provider) await signInWithPopup(auth, provider).catch(console.error); };
   const handleLogout = () => auth && signOut(auth);
 
-  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><AlertTriangle size={80} className="text-amber-500 mb-10 animate-bounce" /><h1 className="text-3xl font-black mb-6 uppercase italic">Error de Enlace</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Ernesto, pega tus credenciales de Firebase en el código para activar la seguridad permanente.</p></div>;
+  if (!isConfigValid) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white"><Dumbbell size={80} className="text-amber-500 mb-10 animate-bounce" /><h1 className="text-3xl font-black mb-6 uppercase italic">Error de Enlace</h1><p className="text-slate-500 text-sm max-w-xs font-bold leading-relaxed">Ernesto, pega tus credenciales de Firebase en el código para activar la seguridad permanente.</p></div>;
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-black italic space-y-6"><Dumbbell size={100} className="text-blue-500 animate-spin" /><span className="tracking-[0.6em] uppercase text-[12px] font-black opacity-50">Validando sesión...</span></div>;
 
   if (!user) return <LoginView onLogin={handleLogin} />;
 
-  const views: Record<string, JSX.Element> = {
-    home: <HomeView user={user} onNavigate={setView} onLogout={handleLogout} />,
-    profile: <ProfileView user={user} onBack={() => setView('home')} />,
-    workout: <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} />
+  const renderView = () => {
+    switch(view) {
+      case 'profile': return <ProfileView user={user} onBack={() => setView('home')} />;
+      case 'workout': return <WorkoutView user={user} workouts={workouts} onBack={() => setView('home')} />;
+      default: return <HomeView user={user} onNavigate={setView} onLogout={handleLogout} />;
+    }
   };
 
   return (
     <div className="font-sans text-slate-100 min-h-screen bg-slate-950 selection:bg-blue-600/30 flex flex-col overflow-x-hidden antialiased items-stretch">
       <div className="flex-1 w-full flex flex-col items-stretch">
-        {views[view] || views.home}
+        {renderView()}
       </div>
     </div>
   );
